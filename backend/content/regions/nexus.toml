@@ -1,0 +1,17 @@
+id = "nexus"
+name = "Nexus Core"
+description = "The central hub for all travelers. Safe, serene, and full of opportunity."
+environment = "RealLife"
+anchor_point = ""
+
+[[portals]]
+id = "portal_forest"
+name = "Glowing Forest Portal"
+leads_to = "enchanted_forest"
+required_level = 2
+
+[[portals]]
+id = "portal_lab"
+name = "Teleportation Lab Access"
+leads_to = "tech_realm"
+required_level = 5
