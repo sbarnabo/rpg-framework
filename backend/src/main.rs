@@ -1,27 +1,22 @@
-use axum::{Router, routing::get};
-use std::net::SocketAddr;
-use dotenvy::dotenv;
-use tracing_subscriber;
-
 mod api;
+mod db;
 mod engine;
 mod loader;
 mod models;
-mod db;
+
+use loader::artifacts::load_artifacts_from_dir;
 
 #[tokio::main]
 async fn main() {
-    dotenv().ok();
-    tracing_subscriber::fmt::init();
+    match load_artifacts_from_dir("content/artifacts") {
+        Ok(artifacts) => {
+            println!("✅ Loaded {} artifacts", artifacts.len());
+            for artifact in &artifacts {
+                println!("{:?}", artifact);
+            }
+        }
+        Err(e) => eprintln!("⚠️ Error loading artifacts: {}", e),
+    }
 
-    let app = Router::new()
-        .route("/", get(|| async { "Text RPG Backend is running" }))
-        .merge(api::routes());
-
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
-    println!("🚀 Backend running on {}", addr);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+    // axum HTTP setup goes here
 }
