@@ -4,18 +4,28 @@ mod engine;
 mod loader;
 mod models;
 
+use engine::map_graph::MapGraph;
 use loader::artifacts::load_artifacts_from_dir;
 use loader::dungeons::load_regions_from_dir;
-use engine::map_graph::MapGraph;
-use loader::dungeons::load_regions_from_dir;
 
-fn main() {
-    let regions = load_regions_from_dir("content/regions")
-        .expect("Failed to load dungeon regions");
+#[tokio::main]
+async fn main() {
+    // Load dungeon regions
+    let regions = match load_regions_from_dir("content/regions") {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("⚠️ Failed to load dungeon regions: {}", e);
+            return;
+        }
+    };
 
-    let graph = MapGraph::new(regions);
+    println!("✅ Loaded {} regions", regions.len());
+    for region in &regions {
+        println!("Region: {} ({:?})", region.name, region.environment);
+    }
 
-    // ✅ Print nexus portals
+    // Build world graph
+    let graph = MapGraph::new(regions.clone());
     if let Some(portals) = graph.get_portals("nexus") {
         println!("Nexus portals:");
         for p in portals {
@@ -23,7 +33,6 @@ fn main() {
         }
     }
 
-    // 🔎 Validate portals
     let broken = graph.validate_links();
     if broken.is_empty() {
         println!("✅ All portals are valid!");
@@ -33,24 +42,8 @@ fn main() {
             println!("{}", err);
         }
     }
-}
 
-
-fn main() {
-    let nexus_path = "content/regions";
-    match load_regions_from_dir(nexus_path) {
-        Ok(regions) => {
-            println!("✅ Loaded {} regions", regions.len());
-            for region in &regions {
-                println!("Region: {} ({:?})", region.name, region.environment);
-            }
-        }
-        Err(e) => eprintln!("⚠️ Failed to load regions: {}", e),
-    }
-}
-
-#[tokio::main]
-async fn main() {
+    // Load artifacts
     match load_artifacts_from_dir("content/artifacts") {
         Ok(artifacts) => {
             println!("✅ Loaded {} artifacts", artifacts.len());
@@ -61,5 +54,6 @@ async fn main() {
         Err(e) => eprintln!("⚠️ Error loading artifacts: {}", e),
     }
 
-    // axum HTTP setup goes here
+    // Placeholder for Axum server setup
+    println!("🚀 Axum API not started yet – coming soon!");
 }
