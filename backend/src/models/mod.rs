@@ -8,3 +8,6 @@ pub struct Artifact {
     pub power: u32,
     pub rarity: String,
 }
+
+pub mod dungeon;
+pub use dungeon::*;
