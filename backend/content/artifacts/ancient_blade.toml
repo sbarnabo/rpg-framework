@@ -1,0 +1,5 @@
+id = "blade001"
+name = "Ancient Blade"
+description = "A sword from a forgotten realm, humming with power."
+power = 42
+rarity = "legendary"
