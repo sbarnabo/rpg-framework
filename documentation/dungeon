@@ -1,0 +1,152 @@
+Awesome vision — that’s a very flexible and expandable architecture. Let’s scaffold the **`dungeons` module** with your portal-based world model in mind.
+
+We'll treat each **region/map** as a modular environment loaded from its own TOML file. Each will include:
+
+- **Name + description**
+- **Themed environment type**
+- **List of connected portals**
+- **Anchor point** (for linking it into the hub)
+
+---
+
+## 📁 `src/models/dungeon.rs`
+
+```rust
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum EnvironmentType {
+    Fantasy,
+    Technology,
+    RealLife,
+    Hybrid,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Portal {
+    pub id: String,
+    pub name: String,
+    pub leads_to: String, // region_id
+    pub required_level: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DungeonRegion {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub environment: EnvironmentType,
+    pub portals: Vec<Portal>,
+    pub anchor_point: Option<String>, // anchor ID in the nexus
+}
+```
+
+Update your `models/mod.rs`:
+
+```rust
+pub mod dungeon;
+pub use dungeon::*;
+```
+
+---
+
+## 📁 `src/loader/dungeons.rs`
+
+```rust
+use crate::models::DungeonRegion;
+use std::fs;
+use std::path::Path;
+use anyhow::Result;
+
+pub fn load_regions_from_dir(dir_path: &str) -> Result<Vec<DungeonRegion>> {
+    let mut regions = Vec::new();
+    let entries = fs::read_dir(dir_path)?;
+
+    for entry in entries {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.is_file() && path.extension().map_or(false, |ext| ext == "toml") {
+            let content = fs::read_to_string(&path)?;
+            let region: DungeonRegion = toml::from_str(&content)?;
+            regions.push(region);
+        }
+    }
+
+    Ok(regions)
+}
+```
+
+---
+
+## 🧪 Example Nexus & Portal TOML
+
+📁 `content/regions/nexus.toml`
+
+```toml
+id = "nexus"
+name = "Nexus Core"
+description = "The central hub for all travelers. Safe, serene, and full of opportunity."
+environment = "RealLife"
+anchor_point = ""
+
+[[portals]]
+id = "portal_forest"
+name = "Glowing Forest Portal"
+leads_to = "enchanted_forest"
+required_level = 2
+
+[[portals]]
+id = "portal_lab"
+name = "Teleportation Lab Access"
+leads_to = "tech_realm"
+required_level = 5
+```
+
+📁 `content/regions/enchanted_forest.toml`
+
+```toml
+id = "enchanted_forest"
+name = "Enchanted Forest"
+description = "Mystical woods where ancient spirits roam."
+environment = "Fantasy"
+anchor_point = "portal_forest"
+
+[[portals]]
+id = "portal_deepwoods"
+name = "Path to Deepwoods"
+leads_to = "deep_forest"
+required_level = 4
+```
+
+---
+
+## 📦 Hook into `main.rs`
+
+```rust
+use loader::dungeons::load_regions_from_dir;
+
+fn main() {
+    let nexus_path = "content/regions";
+    match load_regions_from_dir(nexus_path) {
+        Ok(regions) => {
+            println!("✅ Loaded {} regions", regions.len());
+            for region in &regions {
+                println!("Region: {} ({:?})", region.name, region.environment);
+            }
+        }
+        Err(e) => eprintln!("⚠️ Failed to load regions: {}", e),
+    }
+}
+```
+
+---
+
+## ✅ Next Suggestions
+
+- Add validation to ensure all `portal.leads_to` exist
+- Create a runtime in-memory "map graph"
+- Build the Nexus as a special case with user starting zones
+- Eventually expose `GET /regions` or `GET /region/{id}` via an API
+
+Would you like me to generate that map graph logic or help you scaffold the HTTP endpoints with Axum next?
