@@ -1,0 +1,11 @@
+id = "enchanted_forest"
+name = "Enchanted Forest"
+description = "Mystical woods where ancient spirits roam."
+environment = "Fantasy"
+anchor_point = "portal_forest"
+
+[[portals]]
+id = "portal_deepwoods"
+name = "Path to Deepwoods"
+leads_to = "deep_forest"
+required_level = 4
