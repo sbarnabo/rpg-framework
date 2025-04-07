@@ -1,39 +1,74 @@
+version: '3.8'
+
 services:
-  frontend:
-    build: ./frontend
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: always
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=your-email@example.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
     ports:
-      - "3000:3000"
-    depends_on:
-      - backend
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik/letsencrypt:/letsencrypt
+    labels:
+      - "traefik.enable=true"
 
   backend:
     build: ./backend
+    container_name: rpg-backend
+    restart: always
     environment:
-      - DATABASE_URL=postgres://user:pass@db/rpg
-    ports:
-      - "8080:8080"
+      - DATABASE_URL=postgres://rpg_user:rpg_pass@db:5432/rpg
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.barnabo-connect.com`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=8080"
     depends_on:
       - db
 
+  frontend:
+    build: ./frontend
+    container_name: rpg-frontend
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`game.barnabo-connect.com`)"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+    depends_on:
+      - backend
+
   db:
     image: postgres:15-alpine
+    container_name: rpg-db
+    restart: always
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: pass
+      POSTGRES_USER: rpg_user
+      POSTGRES_PASSWORD: rpg_pass
       POSTGRES_DB: rpg
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql/data
 
-  traefik:
-    image: traefik:v3.0
-    command:
-      - "--providers.docker=true"
-      - "--entrypoints.web.address=:80"
+  jenkins:
+    image: jenkins/jenkins:lts-jdk11
+    container_name: jenkins
+    restart: always
     ports:
-      - "80:80"
+      - "8081:8080"
+      - "50000:50000"
     volumes:
+      - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
-  db-data:
-      
+  db_data:
+  jenkins_home:
