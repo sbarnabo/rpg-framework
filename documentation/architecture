@@ -1,0 +1,143 @@
+text-rpg/
+Here’s a complete **modular architecture configuration** for your open-source, multiplayer, web-based text RPG — designed to run on Docker containers (starting with a Raspberry Pi) and support user-contributed content like new worlds, classes, and artifacts.
+
+---
+
+## 🏗️ Architecture Overview
+
+```
+              ┌──────────────────────────┐
+              │   Web Browser (Client)   │
+              └────────────┬─────────────┘
+                           │
+                    HTTPS / WebSocket
+                           │
+              ┌────────────▼─────────────┐
+              │    Traefik Reverse Proxy │
+              └───────┬────────┬─────────┘
+                      │        │
+         ┌────────────▼──┐ ┌───▼─────────┐
+         │ Frontend (UI) │ │ Backend API │
+         │   React/Svelte│ │ Rust (Axum) │
+         └───────────────┘ └────┬────────┘
+                                │ REST/WebSocket
+                        ┌───────▼─────────┐
+                        │ Game Engine Core│
+                        │   + Module Loader
+                        └───────┬─────────┘
+                                │
+                        ┌───────▼──────────┐
+                        │ Game Content API │ (load .toml/.json files)
+                        └───────┬──────────┘
+                                │
+                ┌──────────────▼───────────────┐
+                │   Community-Contributed Data │
+                │  /game-content (dungeons, etc)│
+                └──────────────┬───────────────┘
+                               │
+                      ┌────────▼────────┐
+                      │ PostgreSQL (DB) │
+                      └─────────────────┘
+```
+
+---
+
+## 🔧 Component Breakdown
+
+### 🧠 Backend (Rust)
+- **Framework**: `Axum` or `Actix-Web`
+- **Responsibilities**:
+  - Game state management
+  - Real-time player interaction (via WebSockets)
+  - Authentication (via Keycloak or JWT)
+  - Game content loader (TOML/JSON files)
+  - Exposes REST & WebSocket APIs to the frontend
+
+### 🎮 Game Engine (Core)
+- Modular engine to support:
+  - Character classes
+  - Inventory/artifact system
+  - Dungeons & worlds
+  - Turn-based or real-time interactions
+- Engine loads content dynamically from `/game-content/`
+
+### 📦 Game Content
+- **Format**: `.toml` or `.json` files
+- **Directory**: `game-content/`
+  - `dungeons/`, `classes/`, `artifacts/`, `skills/`
+- Example file:
+```toml
+# game-content/classes/mage.toml
+name = "Mage"
+description = "Master of elemental magic."
+starting_skills = ["fireball", "teleport"]
+```
+
+### 🌐 Frontend
+- **Framework**: React (or Svelte if you prefer lightweight)
+- **Features**:
+  - Login screen
+  - Text adventure interface
+  - Chatbox for multiplayer interaction
+  - Dynamic display of character stats, inventory, location
+
+### 🗃️ Database
+- **PostgreSQL**
+- Stores:
+  - User accounts
+  - Character saves
+  - World state
+  - Game history (optional)
+
+### 🔐 Authentication
+- **Keycloak** (optional, for SSO-style auth)
+- Or use JWT tokens for simpler auth flow
+- Users register/login via frontend → token sent to backend
+
+### 🔁 Reverse Proxy
+- **Traefik**
+- Handles:
+  - Domain routing (e.g., `game.barnabo-connect.com`)
+  - HTTPS with Let’s Encrypt
+  - WebSocket routing to backend
+
+### 🔄 CI/CD
+- **Jenkins** (on Pi)
+- Triggered via GitHub/Gitea Webhooks
+- Pipeline:
+  - Pull code
+  - Validate content
+  - Build Docker images
+  - Run tests
+  - Deploy updated containers
+
+---
+
+## 📂 Directory Structure Summary
+
+```bash
+text-rpg/
+├── backend/                  # Rust backend API & game engine
+│   └── src/
+│       ├── api/
+│       ├── engine/
+│       ├── models/
+│       ├── modules/
+│       └── main.rs
+├── frontend/                 # React or Svelte frontend
+├── game-content/             # Open content folder
+│   ├── dungeons/
+│   ├── artifacts/
+│   ├── classes/
+│   └── skills/
+├── docs/                     # Contributor docs
+│   └── content-format.md
+├── docker-compose.yml
+├── Jenkinsfile
+├── .env
+└── README.md
+```
+
+---
+
+Would you like me to generate a `docker-compose.yml` for this setup or scaffold the backend or content format next?
