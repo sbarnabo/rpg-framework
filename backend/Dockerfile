@@ -1,6 +1,9 @@
 # ---------- Build Stage ----------
 FROM rust:1.75 as builder
 
+# Install cargo-watch
+RUN cargo install cargo-watch
+
 # Create app directory
 WORKDIR /app
 
@@ -11,14 +14,14 @@ COPY Cargo.lock .
 # Create a dummy main.rs to build dependencies
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 
-# Build dependencies
+# Prebuild dependencies
 RUN cargo build --release
 RUN rm -f src/main.rs
 
-# Copy the rest of the source
+# Copy the full source code
 COPY . .
 
-# Build the actual app
+# Final build (optional in dev)
 RUN cargo build --release
 
 # ---------- Runtime Stage ----------
@@ -33,23 +36,21 @@ RUN apt-get update && apt-get install -y \
 # Create non-root user
 RUN useradd -m appuser
 
-# Copy the binary from the builder
-COPY --from=builder /app/target/release/text_rpg_backend /usr/local/bin/text_rpg_backend
-
-# Copy content directory (or mount as volume)
-COPY --from=builder /app/content /opt/text_rpg/content
+# Copy binary and source for dev
+COPY --from=builder /app /app
+COPY --from=builder /usr/local/cargo/bin/cargo-watch /usr/local/bin/cargo-watch
 
 # Set permissions
-RUN chown -R appuser:appuser /opt/text_rpg
+RUN chown -R appuser:appuser /app
 
 # Use non-root user
 USER appuser
 
 # Set working directory
-WORKDIR /opt/text_rpg
+WORKDIR /app
 
 # Expose backend port
 EXPOSE 8080
 
-# Start the backend
-CMD ["text_rpg_backend"]
+# Default to cargo-watch for dev
+CMD ["cargo-watch", "-x", "run"]
