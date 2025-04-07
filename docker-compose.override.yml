@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  backend:
+    volumes:
+      - ./backend:/app
+      - ./backend/content:/opt/text_rpg/content
+    environment:
+      - RUST_LOG=debug
+    command: ["cargo", "watch", "-x", "run"]
+    depends_on:
+      - db
+    working_dir: /app
+    stdin_open: true
+    tty: true
