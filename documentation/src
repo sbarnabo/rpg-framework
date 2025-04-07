@@ -1,0 +1,138 @@
+Awesome — let’s scaffold your `src/` folder for the **modular, content-driven backend**. This will include:
+
+- Folder structure
+- Minimal starter files
+- A working **TOML content loader** to read artifacts, dungeons, or classes from files
+- Examples using `serde` for deserialization
+
+---
+
+## 📁 `src/` Folder Structure
+
+```
+src/
+├── api/         # HTTP routes
+│   └── mod.rs
+├── db/          # PostgreSQL interactions (later)
+│   └── mod.rs
+├── engine/      # RPG logic (e.g., combat, skills)
+│   └── mod.rs
+├── loader/      # TOML content loader
+│   ├── artifacts.rs
+│   ├── dungeons.rs
+│   ├── mod.rs
+├── models/      # Shared structs (e.g., Artifact, Skill)
+│   └── mod.rs
+└── main.rs
+```
+
+---
+
+## 📦 `models/mod.rs`
+
+```rust
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Artifact {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub power: u32,
+    pub rarity: String,
+}
+```
+
+---
+
+## 📦 `loader/artifacts.rs`
+
+```rust
+use crate::models::Artifact;
+use std::fs;
+use std::path::Path;
+use anyhow::Result;
+
+pub fn load_artifacts_from_dir(dir_path: &str) -> Result<Vec<Artifact>> {
+    let mut artifacts = Vec::new();
+    let entries = fs::read_dir(dir_path)?;
+
+    for entry in entries {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.is_file() && path.extension().map_or(false, |ext| ext == "toml") {
+            let content = fs::read_to_string(&path)?;
+            let artifact: Artifact = toml::from_str(&content)?;
+            artifacts.push(artifact);
+        }
+    }
+
+    Ok(artifacts)
+}
+```
+
+---
+
+## 📦 `loader/mod.rs`
+
+```rust
+pub mod artifacts;
+pub mod dungeons; // placeholder for now
+```
+
+---
+
+## 📦 `main.rs`
+
+```rust
+mod api;
+mod db;
+mod engine;
+mod loader;
+mod models;
+
+use loader::artifacts::load_artifacts_from_dir;
+
+#[tokio::main]
+async fn main() {
+    match load_artifacts_from_dir("content/artifacts") {
+        Ok(artifacts) => {
+            println!("✅ Loaded {} artifacts", artifacts.len());
+            for artifact in &artifacts {
+                println!("{:?}", artifact);
+            }
+        }
+        Err(e) => eprintln!("⚠️ Error loading artifacts: {}", e),
+    }
+
+    // axum HTTP setup goes here
+}
+```
+
+---
+
+## 🧪 Example Artifact TOML
+
+📁 `content/artifacts/ancient_blade.toml`
+
+```toml
+id = "blade001"
+name = "Ancient Blade"
+description = "A sword from a forgotten realm, humming with power."
+power = 42
+rarity = "legendary"
+```
+
+---
+
+## ✅ Run & Test
+
+Once your container is running with `cargo watch`, edit `content/artifacts/`, save, and check the logs — your backend will:
+- Reload
+- Parse TOML files
+- Print out the loaded artifacts
+
+---
+
+Want to scaffold **dungeons** next? Or plug this into an API route so you can fetch artifacts from the frontend?
