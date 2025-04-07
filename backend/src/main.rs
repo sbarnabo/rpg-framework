@@ -8,9 +8,30 @@ use engine::map_graph::MapGraph;
 use loader::artifacts::load_artifacts_from_dir;
 use loader::dungeons::load_regions_from_dir;
 
+use axum::{
+    extract::Extension,
+    http::StatusCode,
+    response::IntoResponse,
+    routing::get,
+    Router,
+};
+use dotenvy::dotenv;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::PgPool;
+use std::{env, net::SocketAddr};
+
 #[tokio::main]
 async fn main() {
-    // Load dungeon regions
+    dotenv().ok(); // Load env vars from `.env`
+
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&database_url)
+        .await
+        .expect("Failed to connect to the database");
+
+    // Load regions (dungeons)
     let regions = match load_regions_from_dir("content/regions") {
         Ok(r) => r,
         Err(e) => {
@@ -54,6 +75,24 @@ async fn main() {
         Err(e) => eprintln!("⚠️ Error loading artifacts: {}", e),
     }
 
-    // Placeholder for Axum server setup
-    println!("🚀 Axum API not started yet – coming soon!");
+    // Setup Axum API with shared DB pool
+    let app = Router::new()
+        .route("/health", get(health_check))
+        .layer(Extension(pool));
+
+    // Launch the server
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
+    println!("🚀 Server running at http://{}", addr);
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
+}
+
+// Health check with DB connectivity
+async fn health_check(Extension(pool): Extension<PgPool>) -> impl IntoResponse {
+    match sqlx::query("SELECT 1").execute(&pool).await {
+        Ok(_) => StatusCode::OK,
+        Err(_) => StatusCode::SERVICE_UNAVAILABLE,
+    }
 }
