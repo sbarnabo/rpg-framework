@@ -1,0 +1,62 @@
+Here’s a development-friendly `docker-compose.override.yml` to pair with your main `docker-compose.yml`. This will mount source code, enable live rebuilding, and make local backend development easier.
+
+---
+
+## 🛠️ `docker-compose.override.yml`
+
+```yaml
+version: '3.8'
+
+services:
+  backend:
+    volumes:
+      - ./backend:/app
+      - ./backend/content:/opt/text_rpg/content
+    environment:
+      - RUST_LOG=debug
+    command: ["cargo", "watch", "-x", "run"]
+    depends_on:
+      - db
+    working_dir: /app
+    stdin_open: true
+    tty: true
+```
+
+---
+
+## ✅ What This Does
+
+- **Mounts your code** from host to container (`./backend:/app`)
+- **Mounts game content** dynamically for quick editing (`./backend/content`)
+- Runs with:
+  ```bash
+  cargo watch -x run
+  ```
+  So every time you change code, it automatically recompiles and restarts.
+
+---
+
+## 🔧 Dev Setup Instructions
+
+### 1. Add `cargo-watch` to your toolchain (on host or inside Docker):
+
+```bash
+cargo install cargo-watch
+```
+
+Or if building into the image:
+```Dockerfile
+RUN cargo install cargo-watch
+```
+
+### 2. Launch with:
+
+```bash
+docker compose up --build
+```
+
+And it’ll reload the backend as you edit files on your host system.
+
+---
+
+Do you want a matching override setup for the frontend too, or should we go ahead and scaffold the backend's content loader (`loader/` module) to parse TOML files?
