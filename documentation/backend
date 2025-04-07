@@ -1,0 +1,14 @@
+backend/
+├── src/
+│   ├── api/             # Routes & controllers
+│   ├── engine/          # Core RPG logic (combat, leveling, etc)
+│   ├── loader/          # Load TOML game content (classes, dungeons, etc)
+│   ├── models/          # Data structures shared across modules
+│   ├── db/              # DB connection and queries
+│   └── main.rs
+├── Cargo.toml
+├── content/             # Mounted volume or folder with community game content
+│   ├── classes/
+│   ├── dungeons/
+│   ├── artifacts/
+│   └── skills/
