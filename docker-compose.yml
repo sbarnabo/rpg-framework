@@ -103,7 +103,7 @@ services:
       - traefik
   
   keycloak:
-    image: jboss/keycloak
+    image: quay.io/keycloak/keycloak:26.1.4
     container_name: keycloak
     restart: always
     environment:
@@ -115,20 +115,6 @@ services:
     networks:
       - traefik
   
-  jenkins-agent:
-    image: jenkins/inbound-agent:lts-jdk11
-    container_name: jenkins-agent
-    restart: always
-    environment:
-      - JENKINS_URL=http://jenkins:8080  # URL of Jenkins master
-      - JENKINS_AGENT_NAME=jenkins-agent  # Name of the agent
-      - JENKINS_SECRET=your-agent-secret  # Secret to authenticate the agent
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock  # Allow the agent to interact with Docker
-    networks:
-      - backend
-      - traefik
-
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -171,5 +157,6 @@ volumes:
 networks:
   backend:
   traefik:
+  frontend:
 #    external: true  # if you're sharing it across multiple projects
 
