@@ -1,0 +1,162 @@
+Great choice! SOPS (Secrets OPerationS) is an excellent tool for managing secrets in a way that is both secure and integrates easily with version control. It encrypts your secrets and can decrypt them when needed, making it perfect for use in a project with Docker, CI/CD pipelines, and other environments where you need to store sensitive data.
+
+Here’s how you can integrate **SOPS** into your project:
+
+### 1. **Install SOPS**
+First, you need to install SOPS on your local machine and your CI/CD pipeline (e.g., Jenkins). You can install it via the following methods:
+
+#### For macOS (using Homebrew):
+```bash
+brew install sops
+```
+
+#### For Linux:
+Download the latest release from the GitHub [SOPS Releases page](https://github.com/mozilla/sops/releases) or use a package manager.
+
+#### For Windows:
+Download the executable from the [Releases page](https://github.com/mozilla/sops/releases).
+
+### 2. **Generate Your Encryption Keys**
+SOPS supports encrypting secrets using various key management systems like AWS KMS, GCP KMS, PGP, and more. Here’s how you can use **PGP** to encrypt and decrypt secrets:
+
+- **Generate a PGP Key** (if you don't have one):
+  ```bash
+  gpg --full-generate-key
+  ```
+
+- Once your key is generated, list the key IDs:
+  ```bash
+  gpg --list-secret-keys --keyid-format LONG
+  ```
+
+- Copy the `sec` key ID from the output. This will be used to encrypt and decrypt files.
+
+### 3. **Encrypt Secrets Using SOPS**
+
+#### Create a `secrets.env` file:
+You can create a `.env` file or any other file that will hold your sensitive information.
+
+Example `secrets.env`:
+```env
+DATABASE_URL=postgres://rpg_user:rpg_pass@db:5432/rpg
+SECRET_KEY=supersecretkey
+API_KEY=some-api-key
+```
+
+#### Encrypt the File:
+Now, use SOPS to encrypt the file:
+```bash
+sops -e secrets.env > secrets.env.enc
+```
+This will create an encrypted version of the `secrets.env` file named `secrets.env.enc`.
+
+SOPS will automatically use your PGP key to encrypt the file. The encrypted file can be safely committed to your version control system (Git), as it is not in plaintext.
+
+### 4. **Decrypt Secrets When Needed**
+
+To decrypt the secrets in a running environment, you can use SOPS like so:
+
+```bash
+sops -d secrets.env.enc > secrets.env
+```
+
+This will decrypt the contents and output the decrypted `secrets.env` file that can be loaded into your Docker containers or used in CI/CD pipelines.
+
+### 5. **Integrate SOPS with Docker**
+
+You can use a script to decrypt the secrets before starting your containers. Here’s how you might set it up in a `docker-compose.override.yml` or in your entrypoint script:
+
+#### Example Entry Point Script (`entrypoint.sh`):
+```bash
+#!/bin/bash
+# Decrypt secrets using SOPS
+sops -d /secrets/secrets.env.enc > /secrets/secrets.env
+
+# Run the application (e.g., backend)
+exec "$@"
+```
+
+Make sure that the script is executable:
+```bash
+chmod +x entrypoint.sh
+```
+
+Now, in your `docker-compose.yml`, you can add the entry point to use this script.
+
+```yaml
+services:
+  backend:
+    build: ./backend
+    container_name: rpg-backend
+    environment:
+      - DATABASE_URL
+      - SECRET_KEY
+      - API_KEY
+    volumes:
+      - ./secrets:/secrets  # Mount the decrypted secrets
+    entrypoint: /secrets/entrypoint.sh  # Run the entrypoint script
+    depends_on:
+      - db
+```
+
+This ensures that when the container starts, it decrypts the secrets into environment variables that the application can use.
+
+### 6. **Integrating with Jenkins**
+
+In your Jenkins pipeline, you can integrate SOPS to decrypt secrets as part of the build process. Here's how you could decrypt secrets during a Jenkins build:
+
+- **Install SOPS on the Jenkins Agent**:
+  - You can install SOPS in your Jenkins agent container or as part of the agent setup.
+  - You can use a Docker image that has SOPS pre-installed or install it as part of the `Jenkinsfile` pipeline.
+
+- **Jenkinsfile Example for Decrypting Secrets**:
+  In your Jenkinsfile, you can add steps to decrypt the secrets before running the build.
+
+  ```groovy
+  pipeline {
+    agent any
+    stages {
+      stage('Setup') {
+        steps {
+          script {
+            // Decrypt the secrets using SOPS
+            sh 'sops -d secrets/secrets.env.enc > secrets/secrets.env'
+          }
+        }
+      }
+      stage('Build') {
+        steps {
+          // Run the build or tests
+          sh './gradlew build'
+        }
+      }
+    }
+  }
+  ```
+
+### 7. **Commit the Encrypted Secrets to Git**
+
+Once your secrets are encrypted, you can commit the encrypted secrets file (`secrets.env.enc`) to your Git repository:
+
+```bash
+git add secrets.env.enc
+git commit -m "Add encrypted secrets"
+git push
+```
+
+This keeps your sensitive data safe, as it is encrypted and only accessible to those with the right decryption keys.
+
+### 8. **Automate Decryption in CI/CD**
+
+You can automate the decryption of secrets in your Jenkins pipeline or Docker environment by using environment variables for the decryption key or relying on a key management service (e.g., AWS KMS, GCP KMS) for encryption/decryption.
+
+---
+
+### **Security Considerations**:
+- **Protect Your Keys**: Make sure your PGP keys are kept secure, and use environment variables or a key management service to store them safely.
+- **Access Control**: Ensure that only authorized users or services have access to the keys used for encryption and decryption.
+- **CI/CD Integration**: Avoid storing plaintext secrets in Jenkins or other build systems. Use encrypted secrets and decrypt them during the build process.
+
+By using **SOPS**, you can securely manage secrets and integrate them into your CI/CD pipeline with Docker and Jenkins while ensuring that secrets remain encrypted at rest.
+
+Would you like help with setting up SOPS or integrating it into your Jenkins pipeline?
