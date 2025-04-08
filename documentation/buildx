@@ -1,0 +1,112 @@
+Perfect — let’s get **Buildx** set up on your Raspberry Pi so you can build **multi-architecture Docker images**, use advanced caching, and prepare for future scalability (like CI builds for ARM and x86).
+
+---
+
+## ✅ Step-by-Step: Install and Enable Docker Buildx on Raspberry Pi
+
+### 🧱 1. **Verify Docker Version**
+You need Docker 19.03+ (Buildx is included but may need enabling).
+
+Run:
+```bash
+docker version
+```
+
+Look for something like:
+```
+Version: 20.10.x
+```
+
+If you're below `19.03`, upgrade Docker first.
+
+---
+
+### 🧰 2. **Enable the Experimental CLI Features**
+Run:
+```bash
+mkdir -p ~/.docker
+```
+
+Edit or create `~/.docker/config.json`:
+```json
+{
+  "experimental": "enabled"
+}
+```
+
+---
+
+### 🧪 3. **Check if Buildx is Available**
+Run:
+```bash
+docker buildx version
+```
+
+If successful, you’ll see something like:
+```
+github.com/docker/buildx v0.10.0 ...
+```
+
+---
+
+### 🔧 4. **Create a Buildx Builder**
+```bash
+docker buildx create --name rpg-builder --use
+```
+
+Verify:
+```bash
+docker buildx ls
+```
+
+Output:
+```
+NAME/NODE       DRIVER/ENDPOINT             STATUS   PLATFORMS
+rpg-builder*    docker-container            running  linux/arm64
+```
+
+> If you see `linux/arm/v7`, `linux/amd64`, or `linux/arm64`, you’re golden.
+
+---
+
+### 🌍 5. (Optional) **Enable Cross-Platform Builds with QEMU**
+Install emulation support so you can build images for **x86_64** and others from your Raspberry Pi:
+
+```bash
+docker run --rm --privileged tonistiigi/binfmt --install all
+```
+
+Confirm:
+```bash
+docker buildx inspect --bootstrap
+```
+
+You should see multiple platforms like:
+```
+Platforms: linux/amd64, linux/arm64, linux/arm/v7
+```
+
+---
+
+### 🧪 6. **Test a Multi-Arch Build**
+Here’s a quick build to test:
+
+```bash
+docker buildx build --platform linux/arm64,linux/amd64 -t yourname/rpg-backend:multiarch --push .
+```
+
+> Add `--load` instead of `--push` if you don’t want to upload to Docker Hub yet.
+
+---
+
+### 🔁 7. **Persist Builder Across Reboots (Optional)**
+Docker Desktop does this automatically, but on Raspberry Pi you may want to ensure your builder is recreated on boot using a script or Docker Compose init container.
+
+---
+
+Would you like help:
+- Integrating Buildx into Jenkins pipelines?
+- Adding `frontend` support for multi-arch builds?
+- Creating `Makefile` or `justfile` to automate builds?
+
+Let’s level up your pipeline 🚀
