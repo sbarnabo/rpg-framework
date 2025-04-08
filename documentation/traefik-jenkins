@@ -1,0 +1,198 @@
+To make Jenkins publicly accessible via Traefik while authenticating through Keycloak, you need to set up the following components:
+
+1. **Traefik** as a reverse proxy.
+2. **Keycloak** as the authentication provider.
+3. Proper configuration for **Jenkins** to trust Traefik and Keycloak for authentication.
+
+Here’s the step-by-step guide:
+
+---
+
+### **1. Configure Traefik to Proxy Jenkins**
+
+In your `docker-compose.yml`, Traefik will handle the reverse proxy for Jenkins. You need to make sure Traefik routes the traffic to Jenkins and also enforces Keycloak authentication.
+
+#### **Update `docker-compose.yml` for Traefik and Jenkins**
+
+Here’s the configuration for Traefik and Jenkins to integrate with Keycloak:
+
+```yaml
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: always
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=your-email@example.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--entrypoints.websecure.http.tls=true"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik/letsencrypt:/letsencrypt
+    labels:
+      - "traefik.enable=true"
+    networks:
+      - traefik
+
+  backend:
+    build: ./backend
+    container_name: rpg-backend
+    restart: always
+    environment:
+      - DATABASE_URL=postgres://rpg_user:rpg_pass@db:5432/rpg
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.barnabo-connect.com`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=8080"
+    depends_on:
+      - db
+    networks:
+      - backend
+      - traefik
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rpg_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build: ./frontend
+    container_name: rpg-frontend
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`game.barnabo-connect.com`)"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+    depends_on:
+      - backend
+    networks:
+      - frontend
+      - traefik
+
+  jenkins:
+    image: jenkins/jenkins:lts-jdk11
+    container_name: jenkins
+    restart: always
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jenkins.rule=Host(`jenkins.barnabo-connect.com`)"
+      - "traefik.http.services.jenkins.loadbalancer.server.port=8080"
+      - "traefik.http.routers.jenkins.entrypoints=websecure"
+      - "traefik.http.routers.jenkins.tls.certresolver=letsencrypt"
+      - "traefik.http.middlewares.jenkins-auth.forwardauth.address=http://keycloak:8080/realms/your-realm/protocol/openid-connect/auth"
+      - "traefik.http.middlewares.jenkins-auth.forwardauth.authResponseHeaders=X-Auth-Request-User,X-Auth-Request-Email"
+    networks:
+      - backend
+      - traefik
+
+  keycloak:
+    image: jboss/keycloak
+    container_name: keycloak
+    restart: always
+    environment:
+      - KEYCLOAK_USER=admin
+      - KEYCLOAK_PASSWORD=admin
+      - DB_VENDOR=H2
+    ports:
+      - "8081:8080"
+    networks:
+      - traefik
+
+  db:
+    image: postgres:15-alpine
+    container_name: rpg-db
+    restart: always
+    environment:
+      POSTGRES_USER: rpg_user
+      POSTGRES_PASSWORD: rpg_pass
+      POSTGRES_DB: rpg
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rpg_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:
+  jenkins_home:
+
+networks:
+  backend:
+  traefik:
+```
+
+### **Key Parts of the Configuration:**
+- **Jenkins** is now exposed via Traefik with the label `traefik.http.routers.jenkins.rule=Host('jenkins.barnabo-connect.com')`.
+- **Keycloak** is configured to handle authentication with `forwardauth`, so all requests to Jenkins will need to be authenticated through Keycloak.
+  - The middleware `traefik.http.middlewares.jenkins-auth.forwardauth.address=http://keycloak:8080/realms/your-realm/protocol/openid-connect/auth` tells Traefik to forward authentication requests to Keycloak.
+- **TLS** is configured through Traefik (`traefik.http.routers.jenkins.entrypoints=websecure` and `traefik.http.routers.jenkins.tls.certresolver=letsencrypt`) to ensure secure communication.
+
+### **2. Keycloak Configuration**
+Once you have the Keycloak container running, you need to configure it to allow Jenkins to authenticate users.
+
+1. **Create a Realm**: In Keycloak, create a realm (e.g., `your-realm`).
+2. **Create a Client for Jenkins**:
+   - Set the **Client ID** to something like `jenkins-client`.
+   - Set the **Root URL** to `http://jenkins.barnabo-connect.com`.
+   - Under **Valid Redirect URIs**, add `http://jenkins.barnabo-connect.com/*`.
+3. **Configure Roles and User Permissions**:
+   - Define roles and assign users as needed.
+   - Make sure Jenkins users can log in to the Keycloak realm using proper roles.
+
+4. **Set Up Authentication Flow**:
+   - You can define various authentication flows, such as using **Username/Password** or **Social logins** if desired.
+   
+### **3. Configure Jenkins for Keycloak Integration**
+
+After configuring Keycloak, you will need to make Jenkins use Keycloak for authentication. This can be done using a **Keycloak Plugin** in Jenkins.
+
+1. **Install the Keycloak Authentication Plugin**:
+   - In Jenkins, go to **Manage Jenkins > Manage Plugins**.
+   - Install the **Keycloak Plugin**.
+
+2. **Configure the Plugin**:
+   - After installation, go to **Manage Jenkins > Configure Global Security**.
+   - Under the **Security Realm** section, select **Keycloak**.
+   - Provide the **Keycloak URL**, **Client ID**, and **Client Secret** (from the Keycloak client configuration).
+   - Save the configuration.
+
+### **4. Final Testing**
+
+Once everything is set up, visiting `http://jenkins.barnabo-connect.com` will:
+
+- Route the traffic via Traefik.
+- Trigger the authentication flow via Keycloak.
+- Only authenticated users will be able to access Jenkins.
+
+---
+
+### **5. Further Enhancements**
+
+- **User Role Mapping**: You can configure Jenkins to map Keycloak roles to Jenkins roles. For instance, only users with a certain Keycloak role can access specific Jenkins jobs.
+- **Single Sign-On (SSO)**: If you want SSO across your entire system, you can integrate the same Keycloak authentication flow across other services like the frontend and backend.
+
+---
+
+This setup ensures Jenkins is securely exposed to the internet, but only accessible to authenticated users, leveraging the power of Keycloak for authentication and Traefik for routing and security. Let me know if you need further assistance!
