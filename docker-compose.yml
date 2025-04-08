@@ -140,7 +140,7 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
     depends_on:
-      - prometheus  # If you're using Prometheus for metrics
+      - prometheus  # Prometheus is the data source for Grafana
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.grafana.rule=Host(`grafana.barnabo-connect.com`)"
@@ -160,6 +160,7 @@ services:
       - "9090:9090"
     networks:
       - backend
+      - traefik
 
 volumes:
   db_data:
