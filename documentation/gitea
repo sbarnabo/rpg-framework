@@ -1,0 +1,72 @@
+Great question — choosing between **Gitea** and **GitHub** for your RPG project can shape how you collaborate, automate, and scale. Let’s break it down:
+
+---
+
+## 🆚 Gitea vs GitHub for Your RPG Project
+
+### 🐙 **GitHub** (Hosted or Self-Hosted with GitHub Enterprise)
+
+#### ✅ Pros:
+- **Popular and trusted**: Developers are familiar with it — lower friction for open source contributors.
+- **GitHub Actions**: Built-in CI/CD (powerful, scalable, free for open source).
+- **Ecosystem & Integrations**: Hooks into tools like Dependabot, CodeQL, Docker Hub, Vercel, and more.
+- **Issue tracking + project boards**: Built-in kanban/project tools.
+- **Security features**: SSO, branch protection, 2FA, secret scanning.
+
+#### ❌ Cons:
+- **Limited control** (on GitHub.com): You depend on GitHub’s uptime, policy, pricing, and features.
+- **Private repo limitations** (if not using Pro/Team).
+- **Data not 100% local**: Code lives on GitHub servers unless you pay for enterprise/self-hosting.
+
+---
+
+### 🧡 **Gitea** (Self-Hosted GitHub Alternative)
+
+#### ✅ Pros:
+- **Self-hosted & lightweight**: Perfect for a Raspberry Pi or homelab setup (runs in a small container).
+- **Full control over data**: Repos, issues, users — all stored locally.
+- **Great for internal projects or private dev**: Avoid GitHub limits.
+- **Fast and simple UI**: No bloat.
+
+#### ❌ Cons:
+- **Smaller ecosystem**: No built-in CI/CD like GitHub Actions (but can integrate with Jenkins, Drone, etc.).
+- **Fewer open source contributors**: Harder for others to casually discover or contribute.
+- **Needs self-maintenance**: Updates, backups, user management, etc.
+
+---
+
+## ⚖️ Summary Based on Your Project
+
+| Feature/Need                          | GitHub (hosted)        | Gitea (self-hosted)       |
+|--------------------------------------|-------------------------|---------------------------|
+| Open-source community contributions  | ✅ Easier                | 🚫 More friction           |
+| DevOps homelab integration           | ⚠️ Limited               | ✅ Native fit               |
+| CI/CD setup                          | ✅ GitHub Actions         | ⚠️ Needs Jenkins/Drone     |
+| Full control (air-gapped/longevity)  | 🚫 Not really            | ✅ You own everything       |
+| Works well on Raspberry Pi           | ⚠️ Web-only               | ✅ Lightweight binary       |
+| Fast, lean, hackable                 | 🚫 Slower, larger        | ✅ Very minimal             |
+
+---
+
+## 🧠 Recommendation for *Your* Case
+
+Since you're:
+
+- Running on a **Raspberry Pi** ✅
+- Wanting **modularity and open-source contribution** ✅
+- Using **Docker + Jenkins** ✅
+- Focused on **full control, long-term expandability** ✅
+
+**Hybrid approach is best**:
+
+> 🎯 Use **GitHub for the public open-source repo** (community-facing).  
+> 🔧 Use **Gitea in your homelab** for internal work, CI testing, feature branches, or private dev.
+
+---
+
+Would you like:
+- A guide to mirror GitHub ↔ Gitea for CI/CD?
+- Help configuring Jenkins to pull from Gitea or GitHub?
+- Setup Gitea with OAuth or Keycloak login?
+
+Happy to build out either path!
