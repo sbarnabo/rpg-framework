@@ -1,0 +1,21 @@
+4. Grafana Dashboard Configuration
+Once Grafana is running, go to http://<your-domain>:3001 (e.g., http://grafana.barnabo-connect.com:3001).
+
+Log in using admin/your-admin-password.
+
+Add Prometheus as a data source in Grafana.
+
+Go to Configuration (the gear icon) -> Data Sources -> Add data source -> Prometheus.
+
+In the URL field, enter http://prometheus:9090.
+
+5. Create Grafana Dashboards
+Create custom dashboards to monitor key metrics like:
+
+Container CPU/memory usage
+
+HTTP request/response counts
+
+Database query times
+
+Custom metrics (like dungeon loading times)
