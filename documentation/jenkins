@@ -1,0 +1,232 @@
+⚙️ 3. Setup Jenkins Project
+Inside Jenkins UI:
+
+Go to New Item → Pipeline → name it (e.g., rpg-ci)
+
+In Pipeline > Definition, choose: Pipeline script from SCM
+
+Set:
+
+SCM: Git
+
+Repo URL: https://github.com/yourusername/yourrpgrepo.git
+
+📌 4. Add Docker Permissions for Jenkins
+Script Path: jenkins/Jenkinsfile
+
+sudo usermod -aG docker jenkins
+sudo systemctl restart jenkins
+
+🚀 Optional: Use Webhooks for Auto-Build
+In GitHub:
+
+Go to Settings > Webhooks → Add:
+
+URL: http://your-pi-ip:8081/github-webhook/
+
+Content type: application/json
+
+Trigger on push events
+
+📄 Optional: .dockerignore and .gitignore
+Ensure large build folders don’t pollute Docker cache:
+
+.dockerignore
+
+bash
+Copy
+Edit
+target/
+node_modules/
+.env
+.gitignore
+
+bash
+Copy
+Edit
+/backend/target/
+/frontend/node_modules/
+/.env
+
+Nice move! Adding **containerized Jenkins agents** boosts your build flexibility and scalability — and keeps your Jenkins master (controller) clean and light.
+
+Here’s how to set it up for your **Docker-based RPG project on a Raspberry Pi**:
+
+---
+
+## 🚧 Prerequisites
+
+- You’re using **Docker Compose** ✅
+- Jenkins is installed via Docker and running ✅
+- Raspberry Pi has Docker + Buildx support ✅
+
+---
+
+## 🧱 1. Update `docker-compose.yml`
+
+We'll add a **Jenkins agent** template using the [Jenkins SSH Agent Plugin](https://plugins.jenkins.io/ssh-slaves/) and Docker-in-Docker (`dind`) to support builds inside isolated containers.
+
+Update your Jenkins service block like this:
+
+```yaml
+  jenkins:
+    image: jenkins/jenkins:lts-jdk11
+    container_name: jenkins
+    restart: always
+    ports:
+      - "8081:8080"
+      - "50000:50000" # Agent communication
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+```
+
+---
+
+## 🛠 2. Install Required Jenkins Plugins
+
+Inside Jenkins (at `http://your-pi-ip:8081`):
+- Go to **Manage Jenkins > Plugins > Available**
+- Install:
+  - **Docker plugin**
+  - **Docker Pipeline**
+  - **SSH Build Agents**
+  - **Docker Commons**
+  - **Docker API**
+
+---
+
+## 🐳 3. Create the Docker Agent Image
+
+Create a new file: `jenkins/Dockerfile.agent`
+
+```Dockerfile
+FROM rust:1.75
+
+# Optional: Add any tools you need
+RUN apt-get update && apt-get install -y \
+    git curl libssl-dev pkg-config \
+    && cargo install cargo-watch \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+Then build the image:
+
+```bash
+docker build -t rpg-jenkins-agent ./jenkins
+```
+
+Or add it to Docker Compose if you want:
+
+```yaml
+  jenkins-agent:
+    build:
+      context: ./jenkins
+      dockerfile: Dockerfile.agent
+    image: rpg-jenkins-agent
+```
+
+---
+
+## ⚙️ 4. Configure Jenkins to Use Docker Agent
+
+In Jenkins:
+
+1. Go to **Manage Jenkins > Nodes and Clouds > Configure Clouds**
+2. Click **Add a new cloud → Docker**
+3. Fill out:
+   - Name: `docker`
+   - Docker Host URI: `unix:///var/run/docker.sock`
+   - Docker Agent templates:
+     - Labels: `rust-agent`
+     - Docker Image: `rpg-jenkins-agent`
+     - Remote File System Root: `/home/jenkins/agent`
+     - Connect method: `Attach Docker container`
+     - Usage mode: `Only build jobs with label expressions matching this node`
+
+---
+
+## 📝 5. Modify Jenkinsfile for Container Agent
+
+Update your `Jenkinsfile`:
+
+```groovy
+pipeline {
+    agent {
+        label 'rust-agent'
+    }
+
+    environment {
+        CARGO_HOME = "$HOME/.cargo"
+        RUST_BACKTRACE = "1"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build Backend') {
+            steps {
+                dir('backend') {
+                    sh 'cargo build --release'
+                }
+            }
+        }
+
+        stage('Test Backend') {
+            steps {
+                dir('backend') {
+                    sh 'cargo test'
+                }
+            }
+        }
+
+        stage('Build Frontend') {
+            steps {
+                dir('frontend') {
+                    sh 'npm install'
+                    sh 'npm run build'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline completed.'
+        }
+    }
+}
+```
+
+---
+
+## 🧪 6. Test It Out
+
+- Push changes to your GitHub repo
+- Watch Jenkins trigger the build
+- You should see Jenkins spin up a container using `rpg-jenkins-agent` to run the stages
+
+---
+
+## 📦 Bonus: Auto-cleanup Containers
+
+Enable this under:
+> **Manage Jenkins → Nodes and Clouds → Docker Cloud → Advanced**
+- ✅ Remove Container After Use
+
+This keeps your Pi clean and efficient.
+
+---
+
+Would you like to:
+- Add caching (e.g., mount Rust `target/`)?
+- Set up multi-arch builds for ARM64?
+- Add a frontend agent too (Node.js + Vite)?
+
+Let me know how deep you wanna go.
