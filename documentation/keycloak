@@ -1,0 +1,140 @@
+Awesome — integrating **Keycloak** will provide centralized identity and access management (IAM), which is perfect for a multiplayer RPG with user accounts and role-based access like players, moderators, and admins.
+
+---
+
+## 🔐 Keycloak Integration Plan for Your Text-Based RPG
+
+### 🧱 Architecture Overview
+
+Here's how Keycloak fits into your existing `docker-compose.yml`:
+
+```
+Player → Frontend → Backend (Axum API) → PostgreSQL
+                      ↓
+                  Keycloak (Auth)
+```
+
+---
+
+### 🧩 Step 1: Add Keycloak to `docker-compose.yml`
+
+You'll need Keycloak and a dedicated Postgres database for it:
+
+```yaml
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.1
+    container_name: keycloak
+    restart: always
+    command:
+      - start-dev
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak_user
+      KC_DB_PASSWORD: keycloak_pass
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8082:8080"
+    depends_on:
+      - keycloak-db
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.rule=Host(`auth.barnabo-connect.com`)"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+
+  keycloak-db:
+    image: postgres:15-alpine
+    container_name: keycloak-db
+    restart: always
+    environment:
+      POSTGRES_USER: keycloak_user
+      POSTGRES_PASSWORD: keycloak_pass
+      POSTGRES_DB: keycloak
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+```
+
+Add this to `volumes:` section:
+```yaml
+  keycloak_db_data:
+```
+
+---
+
+### 🔑 Step 2: Configure Keycloak
+
+1. Access Keycloak: [http://auth.barnabo-connect.com](http://auth.barnabo-connect.com)
+2. Log in with admin/admin
+3. Create a new Realm: `rpg`
+4. Add a Client:
+   - Client ID: `rpg-backend`
+   - Root URL: `http://api.barnabo-connect.com`
+   - Access Type: `confidential`
+   - Enable Standard Flow + Direct Access Grants
+5. Add roles like `player`, `moderator`, `admin`
+6. Create test users, assign roles
+
+---
+
+### 🔧 Step 3: Connect Axum Backend to Keycloak
+
+Install OpenID Connect crate in your backend Rust project:
+
+```toml
+[dependencies]
+openidconnect = "3.0"
+axum = "0.7"
+tokio = { version = "1", features = ["full"] }
+```
+
+Create a middleware or extractor to:
+
+- Verify access tokens
+- Pull user info from Keycloak’s `.well-known/openid-configuration`
+- Use roles for game permissions (e.g., admin-only regions)
+
+Would you like a working example of this in Axum?
+
+---
+
+### 🛡️ Step 4: Protect Routes Based on Roles
+
+Example:
+```rust
+if user_has_role(&claims, "player") {
+    // Allow access to game
+} else {
+    // return 403 Forbidden
+}
+```
+
+---
+
+### 🧪 Step 5: Frontend Integration
+
+- Use `PKCE` flow or a JS OIDC library like `oidc-client-ts` or `keycloak-js`
+- Authenticate users
+- Store access token in session/local storage
+- Include token in backend API requests via `Authorization: Bearer <token>`
+
+---
+
+## ✅ Summary
+
+| Component      | Description                              |
+|----------------|------------------------------------------|
+| Keycloak       | Central auth server (users, roles, SSO)  |
+| Axum Backend   | Verifies JWTs and enforces permissions   |
+| Frontend       | Handles login, passes access tokens      |
+| PostgreSQL     | Separate DBs for Keycloak and RPG data   |
+| CI/CD          | Can add realm import/export to Jenkins   |
+
+---
+
+Would you like me to:
+- Generate the Rust Keycloak middleware?
+- Scaffold the frontend login flow?
+- Create a realm config to export/import?
+
+Let’s level up your auth system 👾
