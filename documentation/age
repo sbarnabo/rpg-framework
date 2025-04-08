@@ -1,0 +1,123 @@
+Great choice—**Option 5** is a lightweight and flexible approach that works really well for self-hosted environments, local development, and simple CI/CD pipelines without needing to rely on cloud-specific KMS tools.
+
+Let’s break down the **Age + GitHub Actions Secrets / Self-hosted Vault** setup:
+
+---
+
+## 🔐 What is [**Age**](https://github.com/FiloSottile/age)?
+
+**Age** (Actually Good Encryption) is a **modern, secure, and simple encryption tool** created by Filippo Valsorda (ex-Go team, Cloudflare). It’s a newer alternative to PGP/GPG and is **faster, easier to manage**, and **designed for use with tools like SOPS**.
+
+> ✅ SOPS supports **Age** out of the box.
+
+---
+
+## 🔧 Setup Flow (with Age + GitHub Secrets / Jenkins Vault)
+
+### 1. **Generate Age Keys**
+You’ll generate a key pair (public + private):
+
+```bash
+age-keygen -o age.key
+```
+
+The output might look like:
+
+```bash
+# public key: age1qqlh3j3yz5k3p4m6s4l7egrs5...
+```
+
+Save:
+- The **private key** in a secure location (e.g., Jenkins credentials store, GitHub Actions Secrets, Vault).
+- The **public key** in your project or `.sops.yaml`.
+
+---
+
+### 2. **Configure `.sops.yaml`**
+
+Create `.sops.yaml` in your repo root:
+
+```yaml
+creation_rules:
+  - age: "age1qqlh3j3yz5k3p4m6s4l7egrs5..."
+    encrypted_regex: '^(data|stringData|.*_SECRET)$'
+    path_regex: '.*\.enc\.(yaml|json|env)$'
+```
+
+This tells SOPS to encrypt files with `age` format, and only encrypt the matching keys.
+
+---
+
+### 3. **Encrypt a Secrets File with SOPS + Age**
+
+Example:
+
+```bash
+sops -e -i secrets.enc.env
+```
+
+This will encrypt the secrets using the Age public key.
+
+---
+
+### 4. **Store Age Private Key in CI/CD**
+
+#### 👉 **GitHub Actions**
+Store `AGE_SECRET_KEY` as a GitHub secret:
+
+```yaml
+# .github/workflows/deploy.yml
+env:
+  SOPS_AGE_KEY: ${{ secrets.AGE_SECRET_KEY }}
+```
+
+#### 👉 **Jenkins**
+Use **Credentials → Secret Text** to store the private key. Then load it via `withCredentials` in the pipeline:
+
+```groovy
+withCredentials([string(credentialsId: 'sops-age-key', variable: 'SOPS_AGE_KEY')]) {
+  sh 'sops -d secrets.enc.env > .env'
+}
+```
+
+#### 👉 **HashiCorp Vault (Self-hosted)**
+You can store the Age private key in a Vault KV engine and load it dynamically:
+
+```bash
+vault kv put secret/age key="$(cat ~/.age/key.txt)"
+```
+
+Then pull it into your pipeline before decrypting secrets.
+
+---
+
+## ✅ Pros of Age + SOPS + Secrets Store
+
+| Feature             | Benefit                                                                 |
+|---------------------|--------------------------------------------------------------------------|
+| 🔐 Simplicity        | Age is simpler and safer than PGP/GPG, easier to generate/manage keys.  |
+| 🛠 Tool Compatibility | SOPS + Age work in GitHub Actions, Jenkins, GitLab, etc.                |
+| 💻 Local Dev Friendly | No cloud provider lock-in. Works offline or in homelabs.                |
+| 🔁 CI/CD Ready       | Keys stored securely in CI secrets. Easy to rotate and revoke.          |
+
+---
+
+## ❌ Considerations
+
+- **Age doesn’t support key servers or identity verification like GPG.**
+- If a **private key is leaked**, encrypted files are compromised.
+- You must handle **key rotation** manually (can be scripted).
+
+---
+
+### Optional: Age Plugin for VS Code
+There's a VS Code plugin for decrypting/editing secrets inline. Makes life easier for devs editing `.enc.env` or `secrets.enc.yaml`.
+
+---
+
+Would you like help:
+- creating and integrating Age keys with Jenkins?
+- writing a Jenkins pipeline snippet to decrypt and use `.enc.env` secrets?
+- or automating Age key rotation and Vault storage?
+
+Let’s get it hooked into your current setup.
