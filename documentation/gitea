@@ -65,8 +65,160 @@ Since you're:
 ---
 
 Would you like:
-- A guide to mirror GitHub ↔ Gitea for CI/CD?
 - Help configuring Jenkins to pull from Gitea or GitHub?
 - Setup Gitea with OAuth or Keycloak login?
 
 Happy to build out either path!
+
+Absolutely — here's a clean, step-by-step **guide to mirror your GitHub and Gitea repositories**, so you can:
+
+- **Develop privately in Gitea** on your homelab
+- **Push to GitHub** to share with the open-source community
+- **Automate builds** via CI/CD from either or both locations (Jenkins, GitHub Actions, etc.)
+
+---
+
+## 🪞 GitHub ↔ Gitea Repository Mirroring Guide
+
+---
+
+### 🔧 Step 1: Create Repositories in Both GitHub and Gitea
+
+#### ✅ On GitHub
+Create your repo (e.g. `text-rpg`) at  
+`https://github.com/your-username/text-rpg`
+
+Make it public if you want contributors.
+
+#### ✅ On Gitea
+Create a **private repo** (e.g. `text-rpg`) at  
+`http://gitea.barnabo-connect.com/your-username/text-rpg`
+
+> 🔐 Use SSH or HTTP auth depending on your setup.
+
+---
+
+### 🔁 Step 2: Set Up a Git Remote Mirror
+
+You'll be pushing **from Gitea → GitHub** or **vice versa**.
+
+#### On your local machine or Raspberry Pi:
+
+```bash
+git clone http://gitea.barnabo-connect.com/your-username/text-rpg
+cd text-rpg
+```
+
+#### Add GitHub as a second remote:
+```bash
+git remote add github git@github.com:your-username/text-rpg.git
+```
+
+Or use HTTPS:
+```bash
+git remote add github https://github.com/your-username/text-rpg.git
+```
+
+Check it:
+```bash
+git remote -v
+```
+
+You should see:
+```
+origin  http://gitea.barnabo-connect.com/your-username/text-rpg (fetch)
+origin  http://gitea.barnabo-connect.com/your-username/text-rpg (push)
+github  https://github.com/your-username/text-rpg.git (push)
+```
+
+---
+
+### 🔁 Step 3: Mirror Changes Between Repos
+
+#### Push from Gitea → GitHub:
+```bash
+git push github main
+```
+
+#### Pull from GitHub → Gitea (e.g., if others contribute on GitHub):
+```bash
+git pull github main
+git push origin main
+```
+
+> 🌀 You can also sync tags and other branches as needed.
+
+---
+
+### 🤖 Step 4: Connect Jenkins to Both Remotes (Optional)
+
+You can build jobs that:
+
+- Watch **Gitea** (webhook or polling) and build when you push
+- Push to **GitHub** from Jenkins as part of a build step
+- Or vice versa!
+
+#### Example: Jenkins Git SCM Setup
+In your Jenkins Pipeline Job:
+```groovy
+pipeline {
+    agent any
+    stages {
+        stage('Clone from Gitea') {
+            steps {
+                git url: 'http://gitea.barnabo-connect.com/your-username/text-rpg', branch: 'main'
+            }
+        }
+
+        stage('Mirror to GitHub') {
+            steps {
+                sh '''
+                    git remote add github https://github.com/your-username/text-rpg.git || true
+                    git push github main
+                '''
+            }
+        }
+    }
+}
+```
+
+---
+
+### 🔔 Step 5: Set Up Webhooks (Optional)
+
+#### In Gitea:
+- Go to the repo → Settings → Webhooks
+- Add your Jenkins URL:  
+  `http://jenkins.barnabo-connect.com/github-webhook/`
+
+#### In GitHub:
+- Go to repo → Settings → Webhooks
+- Point to your Jenkins GitHub webhook URL (same as above)
+
+---
+
+### 🧪 (Bonus) Make It Read-Only or Automated
+
+- You can mark your **GitHub repo as "mirror-only"** in your README.
+- Add a cron job or `just sync` command in a `Makefile` for manual sync.
+- Build a Jenkins Job that auto-syncs hourly if needed.
+
+---
+
+## 🔚 Summary
+
+| Task                     | Tool                   |
+|--------------------------|------------------------|
+| Private/internal dev     | Gitea                  |
+| Open-source distribution | GitHub                |
+| CI/CD execution          | Jenkins (and GitHub Actions if needed) |
+| Sync mechanism           | Git remote + Jenkins   |
+
+---
+
+Would you like:
+- A Jenkinsfile that includes full test/build/deploy steps?
+- Help configuring Gitea to auto-push to GitHub on commit?
+- GitHub Actions workflow to pull from Gitea?
+
+Let’s build it out 💥
