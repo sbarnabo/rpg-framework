@@ -1,0 +1,115 @@
+Absolutely — here's a solid **starter `Jenkinsfile`** for your **multi-container (frontend + backend)** RPG project. It builds both containers, runs tests (for Rust), and redeploys using Docker Compose on your Raspberry Pi.
+
+---
+
+### ✅ Assumptions:
+- Your repo is structured like:
+  ```
+  /rpg-project
+  ├── backend/
+  ├── frontend/
+  ├── docker-compose.yml
+  └── Jenkinsfile
+  ```
+- Your Raspberry Pi has Docker and Buildx set up.
+- Optional: You’re using a private Docker registry (can easily adapt to Docker Hub or GHCR).
+
+---
+
+### 📄 `Jenkinsfile` (Declarative Pipeline)
+```groovy
+pipeline {
+  agent any
+
+  environment {
+    COMPOSE_FILE = 'docker-compose.yml'
+    PROJECT_NAME = 'rpg'
+    DOCKER_REGISTRY = 'your-registry.local:5000' // update or comment out if not pushing
+    IMAGE_TAG = 'latest'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Build Backend') {
+      steps {
+        dir('backend') {
+          sh '''
+            echo "🛠 Building backend container..."
+            docker buildx build --platform linux/arm64 -t $DOCKER_REGISTRY/rpg-backend:$IMAGE_TAG .
+          '''
+        }
+      }
+    }
+
+    stage('Build Frontend') {
+      steps {
+        dir('frontend') {
+          sh '''
+            echo "🛠 Building frontend container..."
+            docker buildx build --platform linux/arm64 -t $DOCKER_REGISTRY/rpg-frontend:$IMAGE_TAG .
+          '''
+        }
+      }
+    }
+
+    stage('Push Images') {
+      steps {
+        sh '''
+          echo "📦 Pushing images to registry..."
+          docker push $DOCKER_REGISTRY/rpg-backend:$IMAGE_TAG
+          docker push $DOCKER_REGISTRY/rpg-frontend:$IMAGE_TAG
+        '''
+      }
+    }
+
+    stage('Deploy') {
+      steps {
+        sh '''
+          echo "🚀 Restarting services with Docker Compose..."
+          docker compose down
+          docker compose up -d --build
+        '''
+      }
+    }
+  }
+
+  post {
+    success {
+      echo '✅ Deployment successful!'
+    }
+    failure {
+      echo '❌ Deployment failed.'
+    }
+  }
+}
+```
+
+---
+
+### 🛡 Optional Enhancements
+- Add a `Test` stage for Rust backend:
+  ```groovy
+  stage('Test Backend') {
+    steps {
+      dir('backend') {
+        sh 'cargo test'
+      }
+    }
+  }
+  ```
+- Secure with Docker secrets or `.env` injected in Jenkins
+- Use Jenkins credentials binding for registry login if needed
+
+---
+
+Would you like me to:
+- Generate a Jenkins agent image preloaded with Rust, Node, Docker CLI, etc.?
+- Customize this pipeline to trigger only on backend/frontend file changes?
+- Add Slack/Discord notifications for build status?
+
+Let’s tune this for your workflow 🔧
