@@ -1,0 +1,89 @@
+Great move — creating **custom Jenkins agents** is powerful for keeping your builds consistent and portable, especially on a Raspberry Pi (ARM64). You can create agents tailored for:
+
+---
+
+### 🧰 1. **Rust Agent** (for Backend)
+For compiling and testing the Rust backend (Axum + SQLx):
+
+**`Dockerfile.agent-rust`**
+```Dockerfile
+FROM rust:1.76-slim-bullseye
+
+# Install build tools and PostgreSQL client for SQLx
+RUN apt-get update && apt-get install -y \
+  pkg-config libssl-dev build-essential libpq-dev curl \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
+# Optional: install cargo-watch for dev mode
+RUN cargo install cargo-watch
+
+# Set working dir
+WORKDIR /app
+
+CMD ["bash"]
+```
+
+---
+
+### 🧪 2. **Node Agent** (for Frontend)
+For building the frontend (likely using Vite, React, etc.):
+
+**`Dockerfile.agent-node`**
+```Dockerfile
+FROM node:20-alpine
+
+# Install common build tools
+RUN apk add --no-cache bash git
+
+# Set working dir
+WORKDIR /app
+
+CMD ["bash"]
+```
+
+---
+
+### 🔀 3. **Fullstack Agent** (Rust + Node + Docker CLI)
+Perfect for CI/CD stages that need both environments + docker for pushing or deploying:
+
+**`Dockerfile.agent-full`**
+```Dockerfile
+FROM rust:1.76-slim-bullseye
+
+# Install tools, Node.js, Docker CLI
+RUN apt-get update && apt-get install -y \
+  curl git build-essential libssl-dev pkg-config libpq-dev gnupg ca-certificates \
+  && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+  && apt-get install -y nodejs \
+  && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
+  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
+     https://download.docker.com/linux/debian bullseye stable" \
+     > /etc/apt/sources.list.d/docker.list \
+  && apt-get update && apt-get install -y docker-ce-cli \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN cargo install cargo-watch
+
+WORKDIR /app
+CMD ["bash"]
+```
+
+---
+
+### 🧱 Build & Tag the Agent Images
+You can use Buildx to build and push them:
+
+```bash
+docker buildx create --use
+docker buildx build --platform linux/arm64 -f Dockerfile.agent-rust -t your-registry/jenkins-agent-rust:latest --push .
+docker buildx build --platform linux/arm64 -f Dockerfile.agent-node -t your-registry/jenkins-agent-node:latest --push .
+docker buildx build --platform linux/arm64 -f Dockerfile.agent-full -t your-registry/jenkins-agent-full:latest --push .
+```
+
+---
+
+### 🧩 Next Step
+Would you like help wiring these into your Jenkins configuration using Docker agent templates in `Jenkinsfile`, or setting them up via a shared agent pool using the Jenkins Docker plugin?
+
+Let me know how you’d like to run your agents (in the controller or on-demand), and we can plug it all in.
