@@ -10,12 +10,12 @@ use db::{init_db, check_db_health, seed_data};
 use api::auth::login;
 use api::player::{get_player, get_players};
 use api::game::{start_combat, complete_quest_route};
+use api::inventory::{add_item, remove_item}; // Add this line
 
 use dotenvy::dotenv;
 use sqlx::PgPool;
 use std::{env, net::SocketAddr};
 use std::sync::Arc;
-use std::collections::HashMap;
 
 #[tokio::main]
 async fn main() {
@@ -24,29 +24,17 @@ async fn main() {
     // Initialize database connection pool
     let db = init_db().await;
 
-    // Seed data if needed (for debugging purposes)
-    if cfg!(debug_assertions) {
-        if let Err(e) = seed_data(&db).await {
-            eprintln!("⚠️ Failed to seed database: {}", e);
-        }
-    }
-
-    // Optional health check log
-    if check_db_health(&db).await {
-        println!("✅ Database is healthy");
-    } else {
-        eprintln!("❌ Database connection failed");
-    }
-
     // Create Axum app with routes and shared database pool
-     let app = Router::new()
+    let app = Router::new()
         .route("/health", get(health_check))
         .route("/auth/login", get(login))  // Add login route
         .route("/player/:id", get(get_player))  // Get player by id route
         .route("/players", get(get_players))  // Get multiple players route
         .route("/combat/:player_id/:monster_health", get(start_combat))  // Combat route
         .route("/quest/:player_id/:quest_id", get(complete_quest_route))  // Complete quest route
-        .layer(Extension(Arc::new(db)));;
+        .route("/inventory/add/:player_id", get(add_item))  // Add item to inventory
+        .route("/inventory/remove/:player_id", get(remove_item))  // Remove item from inventory
+        .layer(Extension(Arc::new(db)));
 
     // Launch the server
     let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
@@ -58,6 +46,6 @@ async fn main() {
 }
 
 // Health check with DB connectivity
-async fn health_check() -> impl IntoResponse {
+async fn health_check() -> impl axum::response::IntoResponse {
     StatusCode::OK
 }
