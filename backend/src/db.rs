@@ -1,12 +1,11 @@
 use sqlx::{Pool, Postgres, postgres::PgPoolOptions, migrate::Migrator};
-use std::env;
-use std::sync::Arc;
+use std::{env, sync::Arc};
 use dotenvy::dotenv;
 
 pub type DbPool = Arc<Pool<Postgres>>;
 
-// Embed the migrations from the `migrations/` directory at compile time
-pub static MIGRATOR: Migrator = sqlx::migrate!();
+// Migrations directory
+pub static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
 
 /// Initialize the database connection pool and run migrations.
 pub async fn init_db() -> DbPool {
@@ -19,11 +18,37 @@ pub async fn init_db() -> DbPool {
         .max_connections(5)
         .connect(&database_url)
         .await
-        .expect("Could not connect to the Postgres database");
+        .expect("❌ Failed to connect to PostgreSQL");
 
     MIGRATOR.run(&pool)
         .await
         .expect("Database migrations failed");
-
+    
+    println!("✅ Database connected and migrations applied");
     Arc::new(pool)
+}
+/// Check database health by executing a lightweight query.
+pub async fn check_db_health(pool: &DbPool) -> bool {
+    sqlx::query("SELECT 1")
+        .execute(pool.as_ref())
+        .await
+        .is_ok()
+}
+/// Optional: Seed the database with initial data for development/testing.
+pub async fn seed_data(pool: &DbPool) -> Result<(), sqlx::Error> {
+    // Example: insert a default region or player class
+    sqlx::query!(
+        r#"
+        INSERT INTO character_classes (name, description)
+        VALUES ($1, $2)
+        ON CONFLICT (name) DO NOTHING
+        "#,
+        "Adventurer",
+        "A brave soul starting their journey."
+    )
+    .execute(pool.as_ref())
+    .await?;
+
+    println!("🌱 Seed data inserted");
+    Ok(())
 }
