@@ -11,6 +11,8 @@ use api::auth::login;
 use api::player::{get_player, get_players};
 use api::game::{start_combat, complete_quest_route};
 use api::inventory::{add_item, remove_item}; // Add this line
+use models::item::describe_item; // Adjust the path depending on where describe_item is located
+
 
 use dotenvy::dotenv;
 use sqlx::PgPool;
@@ -44,7 +46,18 @@ async fn main() {
         .await
         .unwrap();
 }
+let item = Item {
+    id: 1,
+    name: "Ancient Sword".to_string(),
+    description: "A sword from a forgotten era.".to_string(),
+    item_type: "Weapon".to_string(),
+    value: 100,
+    durability: Some(50),
+    is_magical: true,
+    is_cursed: true,
+};
 
+describe_item(&item);
 // Health check with DB connectivity
 async fn health_check() -> impl axum::response::IntoResponse {
     StatusCode::OK
