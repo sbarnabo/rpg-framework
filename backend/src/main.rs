@@ -4,12 +4,7 @@ mod engine;
 mod loader;
 mod models;
 
-use db::init_db;
-use axum::Extension;
-use engine::map_graph::MapGraph;
-use loader::artifacts::load_artifacts_from_dir;
-use loader::dungeons::load_regions_from_dir;
-
+use db::{init_db, check_db_health, seed_data};
 use axum::{
     extract::Extension,
     http::StatusCode,
@@ -17,28 +12,31 @@ use axum::{
     routing::get,
     Router,
 };
-use dotenvy::dotenv;
-use sqlx::postgres::PgPoolOptions;
-use sqlx::PgPool;
-use std::{env, net::SocketAddr};
+use engine::map_graph::MapGraph;
+use loader::artifacts::load_artifacts_from_dir;
+use loader::dungeons::load_regions_from_dir;
+use std::{net::SocketAddr};
 
 #[tokio::main]
 async fn main() {
-    dotenv().ok(); // Load env vars from `.env`
-    
+    // Initialize DB + migrations
     let db = init_db().await;
-    let app = Router::new()
-        .route("/health", get(health_check))
-        .layer(Extension(db));
-    
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&database_url)
-        .await
-        .expect("Failed to connect to the database");
 
-    // Load regions (dungeons)
+    // Seed (in debug mode only)
+    if cfg!(debug_assertions) {
+        if let Err(e) = seed_data(&db).await {
+            eprintln!("⚠️ Failed to seed database: {}", e);
+        }
+    }
+
+    // Health check logging
+    if check_db_health(&db).await {
+        println!("✅ Database is healthy");
+    } else {
+        eprintln!("❌ Database connection failed");
+    }
+
+    // Load dungeon regions
     let regions = match load_regions_from_dir("content/regions") {
         Ok(r) => r,
         Err(e) => {
@@ -52,7 +50,7 @@ async fn main() {
         println!("Region: {} ({:?})", region.name, region.environment);
     }
 
-    // Build world graph
+    // Build map graph
     let graph = MapGraph::new(regions.clone());
     if let Some(portals) = graph.get_portals("nexus") {
         println!("Nexus portals:");
@@ -82,10 +80,10 @@ async fn main() {
         Err(e) => eprintln!("⚠️ Error loading artifacts: {}", e),
     }
 
-    // Setup Axum API with shared DB pool
+    // Setup Axum API
     let app = Router::new()
         .route("/health", get(health_check))
-        .layer(Extension(pool));
+        .layer(Extension(db));
 
     // Launch the server
     let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
@@ -96,9 +94,9 @@ async fn main() {
         .unwrap();
 }
 
-// Health check with DB connectivity
-async fn health_check(Extension(pool): Extension<PgPool>) -> impl IntoResponse {
-    match sqlx::query("SELECT 1").execute(&pool).await {
+// Health check route
+async fn health_check(Extension(pool): Extension<db::DbPool>) -> impl IntoResponse {
+    match sqlx::query("SELECT 1").execute(pool.as_ref()).await {
         Ok(_) => StatusCode::OK,
         Err(_) => StatusCode::SERVICE_UNAVAILABLE,
     }
