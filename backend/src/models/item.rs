@@ -8,8 +8,9 @@ pub struct Item {
     pub description: String,
     pub item_type: String, // "Weapon", "Potion", etc.
     pub value: i32,
-    pub durability: Option<i32>, // Durability for items like weapons and armor
+    pub durability: Option<i32>, // Nullable for durability (for items like weapons and armor)
     pub is_magical: bool, // Flag for magical items
+    pub is_cursed: bool,  // Flag for cursed items
 }
 
 impl Item {
