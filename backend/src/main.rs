@@ -4,6 +4,8 @@ mod engine;
 mod loader;
 mod models;
 
+use db::init_db;
+use axum::Extension;
 use engine::map_graph::MapGraph;
 use loader::artifacts::load_artifacts_from_dir;
 use loader::dungeons::load_regions_from_dir;
@@ -23,7 +25,12 @@ use std::{env, net::SocketAddr};
 #[tokio::main]
 async fn main() {
     dotenv().ok(); // Load env vars from `.env`
-
+    
+    let db = init_db().await;
+    let app = Router::new()
+        .route("/health", get(health_check))
+        .layer(Extension(db));
+    
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let pool = PgPoolOptions::new()
         .max_connections(5)
