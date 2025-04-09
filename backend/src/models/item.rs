@@ -1,5 +1,7 @@
 use sqlx::FromRow;
 use serde::{Serialize, Deserialize};
+use crate::models::Item; // Assuming Item is in the models module
+
 
 #[derive(FromRow, Serialize, Deserialize, Debug, Clone)]
 pub struct Item {
@@ -12,7 +14,25 @@ pub struct Item {
     pub is_magical: bool, // Flag for magical items
     pub is_cursed: bool,  // Flag for cursed items
 }
+// Function to describe an item, including its properties
+pub fn describe_item(item: &Item) {
+    println!("Item: {}", item.name);
+    println!("Description: {}", item.description);
+    println!("Type: {}", item.item_type);
+    println!("Value: {}", item.value);
 
+    if let Some(durability) = item.durability {
+        println!("Durability: {}", durability);
+    }
+
+    if item.is_magical {
+        println!("This item is magical!");
+    }
+
+    if item.is_cursed {
+        println!("This item is cursed!");
+    }
+}
 impl Item {
     pub fn use_item(&mut self, player: &mut Player) {
         if let Some(durability) = self.durability {
