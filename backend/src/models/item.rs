@@ -13,8 +13,13 @@ pub struct Item {
 impl Item {
     pub fn use_item(&self, player: &mut Player) {
         match self.item_type.as_str() {
-            "Potion" => player.heal(self.value),
-            "Weapon" => println!("Equipping weapon: {}", self.name),
+            "Potion" => {
+                println!("Using potion: {}", self.name);
+                player.heal(self.value);
+            },
+            "Weapon" => {
+                println!("Equipping weapon: {}", self.name);
+            },
             _ => println!("Using item: {}", self.name),
         }
     }
