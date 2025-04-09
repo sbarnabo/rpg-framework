@@ -1,11 +1,9 @@
 -- migration.sql
 
-CREATE TABLE items (
+CREATE TABLE inventory (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    item_type VARCHAR(255) NOT NULL,
-    value INT,
-    durability INT DEFAULT NULL,   -- Nullable column for durability (only for items like weapons and armor)
-    is_magical BOOLEAN DEFAULT FALSE -- Boolean for magical items
+    player_id INT REFERENCES players(id),
+    item_id INT REFERENCES items(id),
+    quantity INT DEFAULT 1,
+    durability INT DEFAULT 100 -- Default durability, or NULL if item doesn't have durability
 );
