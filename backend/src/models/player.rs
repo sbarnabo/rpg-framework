@@ -32,4 +32,13 @@ impl Player {
             self.health = self.max_health;
         }
     }
+    pub fn add_item(&mut self, item: Item, quantity: i32) {
+        // This would interact with Inventory DB logic
+        println!("Adding {} of item: {}", quantity, item.name);
+    }
+
+    pub fn remove_item(&mut self, item: Item, quantity: i32) {
+        // This would interact with Inventory DB logic
+        println!("Removing {} of item: {}", quantity, item.name);
+    }
 }
