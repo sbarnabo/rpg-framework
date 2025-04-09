@@ -11,3 +11,8 @@ pub struct Artifact {
 
 pub mod dungeon;
 pub use dungeon::*;
+pub mod player;
+pub mod character_class;
+pub mod region;
+pub mod portal;
+pub mod artifact;
