@@ -25,7 +25,12 @@ impl Item {
         }
 
         if self.is_magical {
+            // Magical effect, can be expanded
             println!("The item {} is magical! It grants special abilities!", self.name);
+            if self.item_type == "Potion" {
+                // Magical potion might heal more
+                player.heal(self.value * 2); // Example effect: heals double
+            }
         }
 
         match self.item_type.as_str() {
