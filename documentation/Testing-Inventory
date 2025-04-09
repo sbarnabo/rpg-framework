@@ -1,0 +1,139 @@
+Part 1: Testing the Inventory System
+Testing the inventory system involves interacting with the API you’ve set up for adding and removing items, verifying that data is properly stored, updated, and retrieved from the database. Here’s how you can proceed with the testing process:
+
+1. Start the Server
+First, make sure your application is running. You can start your server by running:
+
+'''bash
+cargo run
+This will start the Axum server, and your API should be available on http://localhost:8080.
+
+2. Test the API Endpoints with Postman or cURL
+For testing purposes, you can use Postman or cURL to interact with the API routes. Below, I’ll walk you through testing some basic inventory operations.
+
+a. Test Adding an Item to the Inventory
+Method: GET
+
+Endpoint: /inventory/add/:player_id
+
+Parameters:
+
+player_id: The ID of the player you want to add the item to.
+
+item: The item you want to add (e.g., a potion or a weapon).
+
+quantity: The number of items to add.
+
+For example:
+
+'''bash
+GET http://localhost:8080/inventory/add/1?item=Potion&quantity=5
+You should see a success response if everything is working correctly.
+
+b. Test Removing an Item from the Inventory
+Method: GET
+
+Endpoint: /inventory/remove/:player_id
+
+Parameters:
+
+player_id: The ID of the player you want to remove the item from.
+
+item: The item you want to remove.
+
+quantity: The number of items to remove.
+
+For example:
+
+'''bash
+GET http://localhost:8080/inventory/remove/1?item=Potion&quantity=2
+You should see a success response, and the quantity of the item in the player’s inventory should decrease.
+
+c. Check Inventory Content
+Once you've added or removed items, you might want to check the player's inventory. This would involve writing a new endpoint like /inventory/:player_id to retrieve all items for a given player. You can implement this endpoint in the api/inventory.rs file.
+
+'''rust
+use axum::{Json, extract::Path};
+use crate::engine::inventory_logic::get_inventory_for_player;
+use crate::models::Inventory;
+
+pub async fn get_inventory(Path(player_id): Path<i32>) -> Json<Vec<Inventory>> {
+    let inventory = get_inventory_for_player(player_id).await;
+    Json(inventory)
+}
+Then, add this route to your main.rs:
+
+'''rust
+.route("/inventory/:player_id", get(get_inventory))
+Now, you can test this with:
+
+'''bash
+GET http://localhost:8080/inventory/1
+This should return the items in player 1's inventory.
+
+3. Validate Database Updates
+After interacting with the inventory system via API requests, use psql (or your PostgreSQL client) to directly check the database and confirm that changes have been made as expected.
+
+For example, you can check the inventory table:
+
+'''sql
+SELECT * FROM inventory WHERE player_id = 1;
+This should show the updated inventory of player 1, including the item types and quantities.
+
+4. Test Using Edge Cases
+Trying to Remove More Items than You Have: Ensure that the inventory system gracefully handles trying to remove more items than the player has (e.g., no errors, inventory does not go negative).
+
+Check Inventory Limit: If you have set a limit on the number of items a player can carry, verify that it is properly enforced.
+
+Part 2: Modifying the Inventory System to Include Durability and Magical Items
+Let’s update the inventory system to support the following:
+
+Durability for weapons and armor (items degrade with use).
+
+Magical Items with special properties (e.g., additional effects).
+
+1. Add Durability to Items
+We’ll add a durability field to the Item struct for weapons and armor. This field will represent how many uses the item has left before it breaks.
+
+Here’s how you can update the Item model:
+
+'''rust
+#[derive(FromRow, Serialize, Deserialize, Debug, Clone)]
+pub struct Item {
+    pub id: i32,
+    pub name: String,
+    pub description: String,
+    pub item_type: String, // "Weapon", "Potion", etc.
+    pub value: i32,
+    pub durability: Option<i32>, // Durability for items like weapons and armor
+    pub is_magical: bool, // Flag for magical items
+}
+
+impl Item {
+    pub fn use_item(&mut self, player: &mut Player) {
+        if let Some(durability) = self.durability {
+            if durability <= 0 {
+                println!("The item {} is broken and can no longer be used.", self.name);
+                return;
+            } else {
+                self.durability = Some(durability - 1); // Decrease durability
+                println!("Using item: {}. Remaining durability: {}", self.name, self.durability.unwrap());
+            }
+        }
+
+        if self.is_magical {
+            println!("The item {} is magical! It grants special abilities!", self.name);
+        }
+
+        match self.item_type.as_str() {
+            "Potion" => {
+                println!("Using potion: {}", self.name);
+                player.heal(self.value);
+            },
+            "Weapon" => {
+                println!("Equipping weapon: {}", self.name);
+            },
+            _ => println!("Using item: {}", self.name),
+        }
+    }
+}

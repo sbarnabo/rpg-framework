@@ -4,81 +4,39 @@ mod engine;
 mod loader;
 mod models;
 
-use engine::map_graph::MapGraph;
-use loader::artifacts::load_artifacts_from_dir;
-use loader::dungeons::load_regions_from_dir;
+use axum::{Router, Extension};
+use axum::routing::{get};
+use db::{init_db, check_db_health, seed_data};
+use api::auth::login;
+use api::player::{get_player, get_players};
+use api::game::{start_combat, complete_quest_route};
+use api::inventory::{add_item, remove_item}; // Add this line
+use models::item::describe_item; // Adjust the path depending on where describe_item is located
 
-use axum::{
-    extract::Extension,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::get,
-    Router,
-};
+
 use dotenvy::dotenv;
-use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::{env, net::SocketAddr};
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() {
     dotenv().ok(); // Load env vars from `.env`
 
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&database_url)
-        .await
-        .expect("Failed to connect to the database");
+    // Initialize database connection pool
+    let db = init_db().await;
 
-    // Load regions (dungeons)
-    let regions = match load_regions_from_dir("content/regions") {
-        Ok(r) => r,
-        Err(e) => {
-            eprintln!("⚠️ Failed to load dungeon regions: {}", e);
-            return;
-        }
-    };
-
-    println!("✅ Loaded {} regions", regions.len());
-    for region in &regions {
-        println!("Region: {} ({:?})", region.name, region.environment);
-    }
-
-    // Build world graph
-    let graph = MapGraph::new(regions.clone());
-    if let Some(portals) = graph.get_portals("nexus") {
-        println!("Nexus portals:");
-        for p in portals {
-            println!("- {} (to {}, requires level {})", p.name, p.leads_to, p.required_level);
-        }
-    }
-
-    let broken = graph.validate_links();
-    if broken.is_empty() {
-        println!("✅ All portals are valid!");
-    } else {
-        println!("⚠️ Found broken links:");
-        for err in broken {
-            println!("{}", err);
-        }
-    }
-
-    // Load artifacts
-    match load_artifacts_from_dir("content/artifacts") {
-        Ok(artifacts) => {
-            println!("✅ Loaded {} artifacts", artifacts.len());
-            for artifact in &artifacts {
-                println!("{:?}", artifact);
-            }
-        }
-        Err(e) => eprintln!("⚠️ Error loading artifacts: {}", e),
-    }
-
-    // Setup Axum API with shared DB pool
+    // Create Axum app with routes and shared database pool
     let app = Router::new()
         .route("/health", get(health_check))
-        .layer(Extension(pool));
+        .route("/auth/login", get(login))  // Add login route
+        .route("/player/:id", get(get_player))  // Get player by id route
+        .route("/players", get(get_players))  // Get multiple players route
+        .route("/combat/:player_id/:monster_health", get(start_combat))  // Combat route
+        .route("/quest/:player_id/:quest_id", get(complete_quest_route))  // Complete quest route
+        .route("/inventory/add/:player_id", get(add_item))  // Add item to inventory
+        .route("/inventory/remove/:player_id", get(remove_item))  // Remove item from inventory
+        .layer(Extension(Arc::new(db)));
 
     // Launch the server
     let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
@@ -88,11 +46,19 @@ async fn main() {
         .await
         .unwrap();
 }
+let item = Item {
+    id: 1,
+    name: "Ancient Sword".to_string(),
+    description: "A sword from a forgotten era.".to_string(),
+    item_type: "Weapon".to_string(),
+    value: 100,
+    durability: Some(50),
+    is_magical: true,
+    is_cursed: true,
+};
 
+describe_item(&item);
 // Health check with DB connectivity
-async fn health_check(Extension(pool): Extension<PgPool>) -> impl IntoResponse {
-    match sqlx::query("SELECT 1").execute(&pool).await {
-        Ok(_) => StatusCode::OK,
-        Err(_) => StatusCode::SERVICE_UNAVAILABLE,
-    }
+async fn health_check() -> impl axum::response::IntoResponse {
+    StatusCode::OK
 }
