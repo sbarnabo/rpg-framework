@@ -3,43 +3,58 @@ mod db;
 mod engine;
 mod loader;
 mod models;
-mod startup;
-mod routes;
-mod config;
 
-use crate::db::{init_db, seed_data, check_db_health};
-use crate::config::{load_env, get_database_url};
-use crate::startup::create_router;
+use axum::{Router, Extension};
+use axum::routing::{get};
+use db::{init_db, check_db_health, seed_data};
+use api::auth::login;
+use api::player::{get_player, get_players};
 
-use sqlx::postgres::PgPoolOptions;
-use std::net::SocketAddr;
+use dotenvy::dotenv;
+use sqlx::PgPool;
+use std::{env, net::SocketAddr};
+use std::sync::Arc;
+use std::collections::HashMap;
 
 #[tokio::main]
 async fn main() {
-    load_env();
+    dotenv().ok(); // Load env vars from `.env`
 
-    let database_url = get_database_url();
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&database_url)
-        .await
-        .expect("❌ Failed to connect to the database");
+    // Initialize database connection pool
+    let db = init_db().await;
 
-    if check_db_health(&pool).await {
-        println!("✅ Database is healthy");
-    }
-
+    // Seed data if needed (for debugging purposes)
     if cfg!(debug_assertions) {
-        if let Err(e) = seed_data(&pool).await {
+        if let Err(e) = seed_data(&db).await {
             eprintln!("⚠️ Failed to seed database: {}", e);
         }
     }
 
-    let app = create_router(pool);
+    // Optional health check log
+    if check_db_health(&db).await {
+        println!("✅ Database is healthy");
+    } else {
+        eprintln!("❌ Database connection failed");
+    }
+
+    // Create Axum app with routes and shared database pool
+    let app = Router::new()
+        .route("/health", get(health_check))
+        .route("/auth/login", get(login))  // Add login route
+        .route("/player/:id", get(get_player))  // Get player by id route
+        .route("/players", get(get_players))  // Get multiple players route
+        .layer(Extension(Arc::new(db)));
+
+    // Launch the server
     let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
     println!("🚀 Server running at http://{}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await
         .unwrap();
+}
+
+// Health check with DB connectivity
+async fn health_check() -> impl IntoResponse {
+    StatusCode::OK
 }
