@@ -4,9 +4,7 @@ Testing the inventory system involves interacting with the API you’ve set up f
 1. Start the Server
 First, make sure your application is running. You can start your server by running:
 
-bash
-Copy
-Edit
+'''bash
 cargo run
 This will start the Axum server, and your API should be available on http://localhost:8080.
 
@@ -28,9 +26,7 @@ quantity: The number of items to add.
 
 For example:
 
-bash
-Copy
-Edit
+'''bash
 GET http://localhost:8080/inventory/add/1?item=Potion&quantity=5
 You should see a success response if everything is working correctly.
 
@@ -49,18 +45,14 @@ quantity: The number of items to remove.
 
 For example:
 
-bash
-Copy
-Edit
+'''bash
 GET http://localhost:8080/inventory/remove/1?item=Potion&quantity=2
 You should see a success response, and the quantity of the item in the player’s inventory should decrease.
 
 c. Check Inventory Content
 Once you've added or removed items, you might want to check the player's inventory. This would involve writing a new endpoint like /inventory/:player_id to retrieve all items for a given player. You can implement this endpoint in the api/inventory.rs file.
 
-rust
-Copy
-Edit
+'''rust
 use axum::{Json, extract::Path};
 use crate::engine::inventory_logic::get_inventory_for_player;
 use crate::models::Inventory;
@@ -71,15 +63,11 @@ pub async fn get_inventory(Path(player_id): Path<i32>) -> Json<Vec<Inventory>> {
 }
 Then, add this route to your main.rs:
 
-rust
-Copy
-Edit
+'''rust
 .route("/inventory/:player_id", get(get_inventory))
 Now, you can test this with:
 
-bash
-Copy
-Edit
+'''bash
 GET http://localhost:8080/inventory/1
 This should return the items in player 1's inventory.
 
@@ -88,9 +76,7 @@ After interacting with the inventory system via API requests, use psql (or your 
 
 For example, you can check the inventory table:
 
-sql
-Copy
-Edit
+'''sql
 SELECT * FROM inventory WHERE player_id = 1;
 This should show the updated inventory of player 1, including the item types and quantities.
 
@@ -111,9 +97,7 @@ We’ll add a durability field to the Item struct for weapons and armor. This fi
 
 Here’s how you can update the Item model:
 
-rust
-Copy
-Edit
+'''rust
 #[derive(FromRow, Serialize, Deserialize, Debug, Clone)]
 pub struct Item {
     pub id: i32,
