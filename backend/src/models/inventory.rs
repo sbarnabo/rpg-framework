@@ -11,8 +11,11 @@ pub struct Inventory {
 
 
 impl Inventory {
-    pub fn add_item(&mut self, quantity: i32) {
+    pub fn add_item(&mut self, quantity: i32, durability: Option<i32>) {
         self.quantity += quantity;
+        if let Some(durability) = durability {
+            self.durability = Some(durability);
+        }
     }
 
     pub fn remove_item(&mut self, quantity: i32) {
@@ -23,3 +26,4 @@ impl Inventory {
         }
     }
 }
+
