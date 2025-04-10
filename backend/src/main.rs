@@ -37,6 +37,11 @@ async fn main() {
     println!("Migrations applied successfully");
 
     // Continue with the rest of your app initialization...
+    if cfg!(debug_assertions) {
+    if let Err(e) = db::seed::seed_items(&db).await {
+        eprintln!("⚠️ Failed to seed items: {}", e);
+    }
+}
 
     // Create Axum app with routes and shared database pool
     let app = Router::new()
