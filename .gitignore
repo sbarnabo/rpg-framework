@@ -1,0 +1,49 @@
+# Node modules
+/frontend/node_modules/
+/frontend/.pnp
+/frontend/.pnp.js
+
+# Build output
+/frontend/dist/
+/frontend/build/
+frontend/.next/
+frontend/out/
+
+# React
+/frontend/.env.local
+/frontend/.env.development.local
+/frontend/.env.test.local
+/frontend/.env.production.local
+
+# Rust
+/backend/target/
+
+# Rust-specific
+**/*.rs.bk
+
+# Cargo
+Cargo.lock
+cargo-vendor/
+
+# Docker files
+.docker/
+.docker-compose.override.yml
+
+# Log files
+*.log
+
+# Environment files
+.env
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+*.db
+.docker/volumes/*
