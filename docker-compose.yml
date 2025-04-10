@@ -1,144 +1,161 @@
-networks:
-  rpg_network:
-    driver: bridge
-
-volumes:
-  postgres_data:
-  grafana_data:
+version: '3.8'
 
 services:
-  # Traefik - Reverse Proxy
   traefik:
-    image: traefik:v2.6
+    image: traefik:v3.0
     container_name: traefik
+    restart: always
     command:
       - "--api.insecure=true"
       - "--providers.docker=true"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=your-email@example.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--entrypoints.websecure.http.tls=true"
     ports:
-      - "80:80"  # HTTP
-      - "443:443"  # HTTPS
-    networks:
-      - rpg_network
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik/letsencrypt:/letsencrypt
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=Host(`traefik.local`)"
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      - traefik
 
-  # Backend (Rust API)
   backend:
     build: ./backend
     container_name: rpg-backend
+    restart: always
     environment:
-      - DATABASE_URL=postgres://user:password@db/rpg
-    networks:
-      - rpg_network
+      - DATABASE_URL=postgres://rpg_user:rpg_pass@db:5432/rpg
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=Host(`backend.local`)"
+      - "traefik.http.routers.backend.rule=Host(`api.barnabo-connect.com`)"
       - "traefik.http.services.backend.loadbalancer.server.port=8080"
+    depends_on:
+      - db
+    networks:
+      - backend
+      - traefik
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rpg_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Frontend (React, Vue, etc.)
   frontend:
     build: ./frontend
     container_name: rpg-frontend
-    networks:
-      - rpg_network
+    restart: always
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`frontend.local`)"
+      - "traefik.http.routers.frontend.rule=Host(`game.barnabo-connect.com`)"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
+    depends_on:
+      - backend
+    networks:
+      - frontend
+      - traefik
 
-  # Database (PostgreSQL)
   db:
-    image: postgres:13
+    image: postgres:15-alpine
     container_name: rpg-db
+    restart: always
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      POSTGRES_USER: rpg_user
+      POSTGRES_PASSWORD: rpg_pass
       POSTGRES_DB: rpg
-    networks:
-      - rpg_network
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  # Jenkins CI/CD
-  jenkins:
-    image: jenkins/jenkins:lts
-    container_name: jenkins
-    environment:
-      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+      - db_data:/var/lib/postgresql/data
     networks:
-      - rpg_network
+      - backend
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rpg_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  jenkins:
+    image: jenkins/jenkins:lts-jdk11
+    container_name: jenkins
+    restart: always
     ports:
       - "8080:8080"
+      - "50000:50000"
     volumes:
       - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.jenkins.rule=Host(`jenkins.local`)"
-
-  # Keycloak for Authentication
+      - "traefik.http.routers.jenkins.rule=Host(`jenkins.barnabo-connect.com`)"
+      - "traefik.http.services.jenkins.loadbalancer.server.port=8080"
+      - "traefik.http.routers.jenkins.entrypoints=websecure"
+      - "traefik.http.routers.jenkins.tls.certresolver=letsencrypt"
+      - "traefik.http.middlewares.jenkins-auth.forwardauth.address=http://keycloak:8080/realms/your-realm/protocol/openid-connect/auth"
+      - "traefik.http.middlewares.jenkins-auth.forwardauth.authResponseHeaders=X-Auth-Request-User,X-Auth-Request-Email"
+    networks:
+      - backend
+      - traefik
+  
   keycloak:
-    image: quay.io/keycloak/keycloak:latest
+    image: quay.io/keycloak/keycloak:26.1.4
     container_name: keycloak
+    restart: always
     environment:
       - KEYCLOAK_USER=admin
       - KEYCLOAK_PASSWORD=admin
-      - DB_VENDOR=postgres
-      - DB_ADDR=db
-      - DB_DATABASE=rpg
-      - DB_USER=user
-      - DB_PASSWORD=password
-    networks:
-      - rpg_network
+      - DB_VENDOR=H2
     ports:
-      - "8082:8080"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.keycloak.rule=Host(`keycloak.local`)"
-
-  # Grafana for monitoring
+      - "8080:8081"
+    networks:
+      - traefik
+  
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
+    restart: always
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-    networks:
-      - rpg_network
+      GF_SECURITY_ADMIN_PASSWORD: "your-admin-password"
     ports:
-      - "3000:3000"
+      - "3001:3000"  # Expose Grafana on port 3001
     volumes:
       - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus  # Prometheus is the data source for Grafana
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.grafana.rule=Host(`grafana.local`)"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.barnabo-connect.com`)"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+    networks:
+      - backend
+      - traefik
 
-  # Prometheus for monitoring
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
+    restart: always
     volumes:
+      - prometheus_data:/prometheus
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-    networks:
-      - rpg_network
     ports:
       - "9090:9090"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.prometheus.rule=Host(`prometheus.local`)"
-
-  # Add any additional services here (e.g., cache, queue, etc.)
-
-networks:
-  rpg_network:
-    driver: bridge
+    networks:
+      - backend
+      - traefik
 
 volumes:
-  postgres_data:
-  grafana_data:
+  db_data:
   jenkins_home:
+  grafana_data:
+  prometheus_data:
+  
+networks:
+  backend:
+  traefik:
+  frontend:
+#    external: true  # if you're sharing it across multiple projects
