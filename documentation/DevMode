@@ -1,0 +1,99 @@
+Great! Adding a **development mode** to the backend can streamline local development, enable useful debugging tools, and apply behaviors like hot reloading or verbose logging. Here's a breakdown of how we can implement this:
+
+---
+
+### ✅ 1. **Set Up Environment Mode Switching**
+
+We'll control the mode using an environment variable called `APP_ENV`. In your `.env` file or Docker Compose config, set:
+
+```env
+APP_ENV=development
+```
+
+In production, you'd use:
+
+```env
+APP_ENV=production
+```
+
+---
+
+### ✅ 2. **Update `config.rs` to Parse the Mode**
+
+In your `src/config.rs`, add:
+
+```rust
+use std::env;
+
+#[derive(Debug, Clone)]
+pub enum AppEnvironment {
+    Development,
+    Production,
+}
+
+impl AppEnvironment {
+    pub fn from_env() -> Self {
+        match env::var("APP_ENV").unwrap_or_else(|_| "development".into()).as_str() {
+            "production" => AppEnvironment::Production,
+            _ => AppEnvironment::Development,
+        }
+    }
+
+    pub fn is_dev(&self) -> bool {
+        matches!(self, AppEnvironment::Development)
+    }
+}
+```
+
+---
+
+### ✅ 3. **Use It in `main.rs` or `startup.rs`**
+
+Load the environment mode:
+
+```rust
+use crate::config::AppEnvironment;
+
+let environment = AppEnvironment::from_env();
+if environment.is_dev() {
+    println!("🚧 Running in development mode");
+} else {
+    println!("🚀 Running in production mode");
+}
+```
+
+---
+
+### ✅ 4. **Development-Only Behaviors**
+
+You can now add dev-only features like:
+- Logging more info
+- Automatically seeding the database
+- Enabling CORS or Swagger UI
+- Mocking authentication for quick tests
+
+For example, seed data only in dev:
+
+```rust
+if environment.is_dev() {
+    db::seed::seed_items(&pool).await?;
+    db::seed::seed_skills(&pool).await?;
+}
+```
+
+---
+
+### ✅ 5. **Docker Support**
+
+Update your `docker-compose.override.yml` for dev:
+
+```yaml
+services:
+  backend:
+    environment:
+      - APP_ENV=development
+```
+
+---
+
+Would you like help wiring this up with `actix-web` middleware, live reload tools, or database migration triggers in dev mode?
