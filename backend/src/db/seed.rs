@@ -1,6 +1,8 @@
 // src/db/seed.rs
+
 use sqlx::{PgPool, Error};
 
+/// ========== Item Struct & Seeding ==========
 #[derive(Debug)]
 struct Item<'a> {
     name: &'a str,
@@ -14,7 +16,7 @@ struct Item<'a> {
 }
 
 pub async fn seed_items(pool: &PgPool) -> Result<(), Error> {
-   let items = vec![
+    let items = vec![
         Item { name: "Iron Sword", description: "A basic iron sword.", durability: Some(100), is_magical: false, is_cursed: false, item_type: "Weapon", power: 10, value: 50 },
         Item { name: "Healing Potion", description: "Restores a small amount of health.", durability: None, is_magical: false, is_cursed: false, item_type: "Consumable", power: 0, value: 20 },
         Item { name: "Staff of Fire", description: "A magical staff that casts fire.", durability: Some(80), is_magical: true, is_cursed: false, item_type: "Weapon", power: 25, value: 150 },
@@ -50,8 +52,7 @@ pub async fn seed_items(pool: &PgPool) -> Result<(), Error> {
     Ok(())
 }
 
-use sqlx::PgPool;
-
+/// ========== Skill Seeding ==========
 pub async fn seed_skills(pool: &PgPool) -> Result<(), sqlx::Error> {
     let query = r#"
         INSERT INTO skills (name, description, skill_type, power, cooldown, mana_cost, target_type)
@@ -73,3 +74,9 @@ pub async fn seed_skills(pool: &PgPool) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
+/// ========== Central Entry Point ==========
+pub async fn run_seeds(pool: &PgPool) -> Result<(), Error> {
+    seed_items(pool).await?;
+    seed_skills(pool).await?;
+    Ok(())
+}
