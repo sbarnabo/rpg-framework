@@ -13,11 +13,10 @@ use api::game::{start_combat, complete_quest_route};
 use api::inventory::{add_item, remove_item}; // Add this line
 use models::item::describe_item; // Adjust the path depending on where describe_item is located
 
-
 use dotenvy::dotenv;
-use sqlx::PgPool;
-use std::{env, net::SocketAddr};
-use std::sync::Arc;
+use sqlx::{PgPool, migrate::Migrator};
+use std::{env, net::SocketAddr, sync::Arc};
+
 
 #[tokio::main]
 async fn main() {
@@ -25,6 +24,19 @@ async fn main() {
 
     // Initialize database connection pool
     let db = init_db().await;
+
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let pool = PgPool::connect(&database_url)
+        .await
+        .expect("Failed to connect to the database");
+
+    // Apply migrations automatically on startup
+    let migrator = Migrator::new(std::path::Path::new("migrations")).await.unwrap();
+    migrator.run(&pool).await.unwrap();
+
+    println!("Migrations applied successfully");
+
+    // Continue with the rest of your app initialization...
 
     // Create Axum app with routes and shared database pool
     let app = Router::new()
