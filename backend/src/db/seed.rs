@@ -49,3 +49,27 @@ pub async fn seed_items(pool: &PgPool) -> Result<(), Error> {
     println!("✅ Seeded sample items.");
     Ok(())
 }
+
+use sqlx::PgPool;
+
+pub async fn seed_skills(pool: &PgPool) -> Result<(), sqlx::Error> {
+    let query = r#"
+        INSERT INTO skills (name, description, skill_type, power, cooldown, mana_cost, target_type)
+        VALUES 
+        ('Fireball', 'Hurls a fiery ball that explodes on impact.', 'Magic', 50, 3, 20, 'Enemy'),
+        ('Heal', 'Restores a small amount of HP.', 'Support', 30, 2, 10, 'Ally'),
+        ('Shadow Strike', 'A quick strike from the shadows.', 'Physical', 40, 1, 5, 'Enemy'),
+        ('Ice Lance', 'Launches a sharp icicle that pierces armor.', 'Magic', 45, 3, 18, 'Enemy'),
+        ('Battle Cry', 'Increases allies'' attack power for 3 turns.', 'Buff', 0, 5, 15, 'Ally'),
+        ('Thunderclap', 'Calls lightning to strike enemies in range.', 'Magic', 60, 4, 25, 'Enemy'),
+        ('Smokescreen', 'Reduces enemy accuracy.', 'Debuff', 0, 3, 10, 'Enemy'),
+        ('Regeneration', 'Gradually restores HP over time.', 'Support', 0, 6, 20, 'Self'),
+        ('Power Slash', 'A heavy physical attack with bonus damage.', 'Physical', 55, 2, 10, 'Enemy'),
+        ('Charm', 'Attempts to seduce the enemy into skipping a turn.', 'Debuff', 0, 4, 15, 'Enemy');
+    "#;
+
+    sqlx::query(query).execute(pool).await?;
+    println!("✅ Skills seeded successfully.");
+    Ok(())
+}
+
