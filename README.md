@@ -93,9 +93,12 @@ docker-compose up -d
 ```
 
 ### Accessing the Services
-- **Frontend**: `http://game.barnabo-connect.com`
-- **Backend API**: `http://api.barnabo-connect.com`
-- **Jenkins**: `http://localhost:8080` (for CI/CD management)
+- **Frontend**: `frontend.local`
+- **Backend API**: `backend.local`
+- **Jenkins**: `jenkins.local:8080` (for CI/CD management)
+- **Keycloak**: `keycloak.local:8082`
+- **Grafana**: `grafana.local:3000`
+- **Prometheus**: `prometheus.local:9090`
 
 ### Testing the Health Endpoint
 Once the services are running, you can test the health check for the backend API by visiting:
