@@ -1,0 +1,12 @@
+:root {
+  --bg: #1e1e2e;
+  --fg: #cdd6f4;
+  --accent: #f38ba8;
+}
+
+body {
+  margin: 0;
+  font-family: monospace;
+  background-color: var(--bg);
+  color: var(--fg);
+}
