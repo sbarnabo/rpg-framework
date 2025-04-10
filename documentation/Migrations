@@ -1,0 +1,146 @@
+To automate SQL table creation in your project, you can leverage **database migrations**. Migrations allow you to version control your database schema changes and apply those changes automatically as part of your project's build or runtime process.
+
+Here’s a step-by-step guide on how you can integrate migrations into your project, specifically using **SQLx** with Rust.
+
+### 1. **Set Up Diesel or SQLx for Migrations**
+
+In Rust, there are a couple of popular libraries to handle migrations: **Diesel** and **SQLx**. Since you're using `SQLx` already in your project, we’ll focus on using SQLx for migrations.
+
+**SQLx** offers an easy way to write migrations manually, store them in versioned files, and apply them to the database.
+
+### 2. **Install SQLx Migration CLI**
+
+First, you’ll need the `sqlx-cli` to manage the migrations. You can install it using the following command:
+
+```bash
+cargo install sqlx-cli --no-default-features --features postgres
+```
+
+This will install the SQLx command-line tool that can help with database migrations.
+
+### 3. **Create Migration Files**
+
+SQLx migrations are simply SQL files that describe changes to the database schema. To generate a new migration file, use the following command:
+
+```bash
+sqlx migrate add create_skills_table
+```
+
+This will generate a new migration file inside the `migrations` folder, typically located at the root of your project. The migration file will be named something like:
+
+```
+migrations/
+  └── 20230415085325_create_skills_table.sql
+```
+
+### 4. **Edit the Migration File**
+
+You will now add the SQL schema for your tables inside this generated migration file. For example:
+
+```sql
+-- 20230415085325_create_skills_table.sql
+
+-- Skills Table
+CREATE TABLE skills (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    skill_type VARCHAR(50),
+    power INT,
+    cooldown INT,
+    mana_cost INT,
+    target_type VARCHAR(50),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Add other tables like player_skills, pet_skills, etc., if necessary
+```
+
+Make sure you include all necessary schema changes in this migration file.
+
+### 5. **Run Migrations**
+
+Now that your migration file is created and edited, you can apply the migrations to your database. Run the following command:
+
+```bash
+sqlx migrate run
+```
+
+This will apply all pending migrations to your database. It will automatically track which migrations have been applied and apply any new migrations you add.
+
+### 6. **Integrate Migrations into Your Application**
+
+You can automate migrations when your application starts up by adding a call to apply migrations in your `main.rs` (or wherever your database connection is initialized). This way, whenever the backend service is started, SQLx will automatically apply any new migrations.
+
+For example, in your `main.rs`:
+
+```rust
+use sqlx::PgPool;
+use sqlx::migrate::Migrator;
+use std::env;
+
+#[tokio::main]
+async fn main() {
+    dotenv().ok();
+
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let pool = PgPool::connect(&database_url)
+        .await
+        .expect("Failed to connect to the database");
+
+    // Apply migrations automatically on startup
+    let migrator = Migrator::new(std::path::Path::new("migrations")).await.unwrap();
+    migrator.run(&pool).await.unwrap();
+
+    println!("Migrations applied successfully");
+
+    // Continue with the rest of your app initialization
+}
+```
+
+In the example above:
+- `Migrator::new("migrations")` will look for your migration files in the `migrations` folder.
+- `migrator.run(&pool).await.unwrap();` will apply any new migrations to the database.
+
+### 7. **Testing Migrations**
+
+Once you've set this up, you can test it by:
+1. Starting your backend service with `cargo run`.
+2. Checking if the tables have been created in the database.
+
+You can also manually inspect the database with a PostgreSQL client (e.g., `psql`, `pgAdmin`, or DBeaver) to verify that the `skills` and related tables exist.
+
+### 8. **Adding Future Migrations**
+
+Whenever you need to update the schema (e.g., add new tables or columns), you’ll repeat the process:
+1. Create a new migration with `sqlx migrate add <migration_name>`.
+2. Add your SQL schema changes in the migration file.
+3. Run `sqlx migrate run` to apply the migrations.
+
+### 9. **Handling Errors**
+
+If you encounter errors during migration (e.g., schema mismatches or unexpected changes), SQLx will prevent the migration from running and provide an error message. You can adjust your migrations and re-run them until they work.
+
+### Example of Full Database Migration Setup:
+
+Here’s a quick overview of the process:
+
+1. **Create migration files**:
+   - `sqlx migrate add create_skills_table`
+   - `sqlx migrate add create_player_skills_table`
+
+2. **Edit the migration files**:
+   - Define `skills`, `player_skills`, and other related tables in SQL.
+
+3. **Run migrations**:
+   - `sqlx migrate run` to apply migrations to the database.
+
+4. **Automate migrations on startup**:
+   - Call `migrator.run(&pool).await.unwrap();` in your app’s `main` function.
+
+### Final Thoughts
+
+By automating migrations with SQLx, you ensure that your database schema is always up to date with your codebase, and that you can easily track and revert changes over time.
+
+Let me know if you'd like further assistance with any of these steps!
