@@ -1,0 +1,105 @@
+Perfect! Here's how you can **test the `/api/health` endpoint integration** between your frontend and backend.
+
+---
+
+## ✅ Step-by-Step Guide
+
+### 🧪 1. Confirm Your Backend Route
+
+Make sure your backend is exposing the health route at `/api/health`.
+
+Your `main.rs` should have something like:
+
+```rust
+let app = Router::new()
+    .route("/api/health", get(health_check))
+    .layer(Extension(pool));
+```
+
+This is already in place if you followed the previous backend setup.
+
+---
+
+### 🔁 2. Ensure Docker Networking via Traefik
+
+In your `docker-compose.yml`, you should have both `frontend` and `backend` connected to the same Traefik network. Example:
+
+```yaml
+networks:
+  traefik:
+    external: true
+  frontend:
+```
+
+Both containers must use `networks: [ traefik, frontend ]`.
+
+Also make sure the `backend` is accessible under a Traefik host like:
+
+```yaml
+- "traefik.http.routers.backend.rule=Host(`api.barnabo-connect.com`)"
+```
+
+---
+
+### 🌐 3. Tell the Frontend Where to Find the Backend
+
+If you’re testing **in production with Docker and Traefik**, the frontend will make calls to `https://api.barnabo-connect.com/api/health`.
+
+In `Terminal.tsx`, update your Axios call:
+
+```tsx
+axios.get("https://api.barnabo-connect.com/api/health")
+```
+
+If you're testing **locally during development**, you can use a proxy. Add this to the **root of your frontend project**:
+
+### `vite.config.ts`
+
+```ts
+server: {
+  proxy: {
+    '/api': {
+      target: 'http://localhost:8080',
+      changeOrigin: true,
+      secure: false
+    }
+  }
+}
+```
+
+Now your frontend can use `axios.get("/api/health")` in development and it will automatically forward to your local backend.
+
+---
+
+### 🚀 4. Run the Frontend + Backend
+
+Make sure both services are running:
+
+```bash
+docker compose up -d
+```
+
+Then visit:
+
+```
+https://game.barnabo-connect.com
+```
+
+You should see:
+
+```
+✅ Backend is online.
+```
+
+---
+
+### 🐞 If Something Doesn’t Work
+
+Check these things:
+- Logs: `docker logs rpg-frontend` and `docker logs rpg-backend`
+- Is Traefik resolving your subdomains?
+- Does the backend route really start with `/api/`?
+
+---
+
+Would you like help validating the DNS/Traefik config or want a testing script to confirm the endpoint externally?
